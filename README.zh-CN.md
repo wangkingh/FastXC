@@ -34,6 +34,12 @@ sac_list_job.suffix = 'sac'
 sac_list_job.start_time = '2017-08-01 00:00:00'
 sac_list_job.end_time = '2017-08-09 00:00:00'
 sac_list_job.kcmpnm = 'Z'
+# 检查输入参数（一定要有这一步）
+sac_list_job.check_inputs()
+# 筛打印选文件的准则
+sac_list_job.print_criteria()
+# 执行匹配文件
+sac_list_job.match_files()
 # 将匹配的文件写入文本文件
 sac_list_job.write_matched_files('./saclist.txt')
 
@@ -49,6 +55,10 @@ sac2spec_job.whiten_type = 'After'
 sac2spec_job.normalize_type = 'Runabs'
 sac2spec_job.skip_check_npts = False
 sac2spec_job.save_by_time = True
+# 检查和配置输入的参数（一定要有这一步）
+sac2spec_job.check_input()
+# 打印参数
+sac2spec_job.print_selected_parameters()
 # 执行生成的命令
 os.system(sac2spec_job.generate_command())
 
@@ -79,6 +89,8 @@ MakeStackList(ncf_directory='/path/to/ncf/files',
 stack_cmd_job = GenStackCmd(ncf_list_list='./stacklistlist',
                             output_directory='/path/to/output/directory')
 stack_cmd_job.normalize_output = True
+# 检查和配置输入参数
+stack_cmd_job.check_input()
 # 系统调用执行该命令
 os.system(stack_cmd_job.generate_command())
 ```
