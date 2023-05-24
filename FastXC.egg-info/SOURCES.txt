@@ -1,0 +1,14 @@
+README.md
+setup.py
+FastXC/__init__.py
+FastXC/file_list_utils.py
+FastXC/make_sac_list.py
+FastXC/ncfstack_cmd_gen.py
+FastXC/sac2spec_cmd_gen.py
+FastXC/specxc_cmd_gen.py
+FastXC.egg-info/PKG-INFO
+FastXC.egg-info/SOURCES.txt
+FastXC.egg-info/dependency_links.txt
+FastXC.egg-info/not-zip-safe
+FastXC.egg-info/requires.txt
+FastXC.egg-info/top_level.txt
