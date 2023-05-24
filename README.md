@@ -2,7 +2,9 @@
 
 # FastXC Python Library
 
-FastXC is a powerful Python library designed to simplify and streamline the processing of seismic cross-correlation tasks. With it, you can handle tasks such as making lists of SAC files, generating spectrum lists, conducting cross-correlation, and performing stacking operations.
+FastXC is a simple Python library designed to simplify and streamline the processing of seismic cross-correlation tasks. With it, you can handle tasks such as making lists of SAC files, generating spectrum lists, conducting cross-correlation, and performing stacking operations.
+
+FastXC required some of the CUDA-C Pre-processing, Cross-Correlation and stacking programme. You can send me email to get them.
 
 ## Installation
 
