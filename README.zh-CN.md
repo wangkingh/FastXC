@@ -85,6 +85,7 @@ os.system(stack_cmd_job.generate_command())
 
 # 文档
 如需获取更多信息和对不同类和函数的详细解释，请参阅 FastXC 的官方文档。
+(暂时还没有写，可以联系作者询问相关问题)
 
 
 # 注意事项、
