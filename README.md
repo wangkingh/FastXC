@@ -88,6 +88,7 @@ os.system(stack_cmd_job.generate_command())
 ```
 # Documentation
 For more information and detailed explanations of the different classes and functions, please refer to the official FastXC documentation.
+(Waiting to complete)
 # Note
 1.Please note that the paths provided to the functions in the example are placeholders and should be replaced with the actual paths to your directories. Please also ensure that you have.
 
