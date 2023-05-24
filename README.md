@@ -38,6 +38,11 @@ sac_list_job.suffix = 'sac'
 sac_list_job.start_time = '2017-08-01 00:00:00'
 sac_list_job.end_time = '2017-08-09 00:00:00'
 sac_list_job.kcmpnm = 'Z'
+# check input parater（required）
+sac_list_job.check_inputs()
+sac_list_job.print_criteria()
+# execute matching process
+sac_list_job.match_files()
 # Write matched files to a text file
 sac_list_job.write_matched_files('./saclist.txt')
 
@@ -53,6 +58,13 @@ sac2spec_job.whiten_type = 'After'
 sac2spec_job.normalize_type = 'Runabs'
 sac2spec_job.skip_check_npts = False
 sac2spec_job.save_by_time = True
+
+
+# check input parameter（required）
+sac2spec_job.check_input()
+# print prameter
+sac2spec_job.print_selected_parameters()
+
 # Execute the generated command
 os.system(sac2spec_job.generate_command())
 
@@ -83,6 +95,8 @@ MakeStackList(ncf_directory='/path/to/ncf/files',
 stack_cmd_job = GenStackCmd(ncf_list_list='./stacklistlist',
                             output_directory='/path/to/output/directory')
 stack_cmd_job.normalize_output = True
+# check and set input parameter
+stack_cmd_job.check_input()
 # Execute the generated command
 os.system(stack_cmd_job.generate_command())
 ```
