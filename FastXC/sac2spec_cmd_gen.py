@@ -71,7 +71,7 @@ class Sac2SpecCmdGen:
 
     @whiten_type.setter
     def whiten_type(self, value):
-        return value
+        self._whiten_type = value
 
     @property
     def normalize_type(self):
@@ -79,7 +79,7 @@ class Sac2SpecCmdGen:
 
     @normalize_type.setter
     def normalize_type(self, value):
-        return value
+        self._normalize_type = value
 
     @property
     def skip_check_npts(self):
