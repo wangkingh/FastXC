@@ -67,7 +67,7 @@ for listfile in glob.glob('./spectrum_list_directory/*'):
     cross_corr_job.do_cross_correlation = True
     cross_corr_job.save_by_pair = True
     # 执行生成的命令
-    # os.system(cross_corr_job.generate_command())
+    os.system(cross_corr_job.generate_command())
 
 # 创建叠加文件列表（列表的列表）
 MakeStackList(ncf_directory='/path/to/ncf/files',
