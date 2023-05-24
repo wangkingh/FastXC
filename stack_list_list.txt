@@ -1,1 +1,0 @@
-stack_list_directory/subdir
