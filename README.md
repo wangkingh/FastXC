@@ -11,6 +11,7 @@ FastXC required some of the CUDA-C Pre-processing, Cross-Correlation and stackin
 You can install FastXC using pip:
 
 ```shell
+cd dist
 pip install FastXC-0.1.0.tar.gz
 ```
 ## Quickstart
