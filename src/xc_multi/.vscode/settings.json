@@ -1,0 +1,20 @@
+{
+    "files.associations": {
+        "*.c": "c",
+        "node_util.h": "c",
+        "string.h": "c",
+        "read_segspec.h": "c",
+        "complex.h": "c",
+        "stdlib.h": "c",
+        "par_write_sac.h": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c",
+        "complex": "c",
+        "pthread.h": "c",
+        "algorithm": "cpp",
+        "limits.h": "c",
+        "par_filter_nodelist.h": "c",
+        "gen_ccfpath.h": "c"
+    }
+}

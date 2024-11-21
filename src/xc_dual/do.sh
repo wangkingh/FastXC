@@ -1,0 +1,1 @@
+/mnt/c/Users/admin/Desktop/FastXC_raw/xc-new/bin/xc_new -A /mnt/c/Users/admin/Desktop/FastXC_raw/output/xc_list/array1/AAKH.U.speclist -B /mnt/c/Users/admin/Desktop/FastXC_raw/output/xc_list/array1/ABNH.U.speclist -O ./ -C 500 -S 1110 -D 400000 -T 40
