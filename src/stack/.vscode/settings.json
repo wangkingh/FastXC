@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "*.c": "c",
+        "limits.h": "c",
+        "stdlib.h": "c",
+        "usage.h": "c",
+        "libgen.h": "c",
+        "algorithm": "c",
+        "sac.h": "c"
+    }
+}

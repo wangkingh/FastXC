@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "arguproc.h": "c",
+        "typeinfo": "c"
+    }
+}

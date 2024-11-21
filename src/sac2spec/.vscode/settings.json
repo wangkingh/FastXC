@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.c": "c",
+        "arguproc.h": "c",
+        "in_out_node_c9.h": "c",
+        "complex": "cpp"
+    }
+}

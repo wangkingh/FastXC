@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.c": "c",
+        "arguproc.h": "c",
+        "usage.h": "c"
+    }
+}

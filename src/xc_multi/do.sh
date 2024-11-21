@@ -1,0 +1,1 @@
+/mnt/c/Users/admin/Desktop/FastXC_daily/bin/xc -A /mnt/c/Users/admin/Desktop/FastXC_daily/output/xc_list/array1/2017.244.0000.speclist -B /mnt/c/Users/admin/Desktop/FastXC_daily/output/xc_list/array1/2017.244.0000.speclist -O /mnt/c/Users/admin/Desktop/FastXC_daily/output/ncf -C 100 -D 400000 -T 40 -G 0 -U 1
