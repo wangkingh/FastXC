@@ -1,15 +1,16 @@
-#CC=gcc -Wall -DDEBUG
-CC=gcc -Wall
+# Compiler
+CC=gcc
+# NVCC=/usr/local/cuda/bin/nvcc
 
-CFLAG=-O2
-CFLAG=-O0 -g
+# cuda architecture
+# ARCH = sm_89
 
-# static version 
-#
-#CFLAG=-O2 -static
+# compiler flags
+CFLAGS=-Wall -O0 -g
+NVCCFLAGS = -g -G -arch=$(ARCH)
 
-NVCC=/usr/local/cuda/bin/nvcc
-LFLAG=-L/usr/local/cuda/lib64 -lcufft -lcudart
+# linker flags
+LFLAG=-L/usr/local/cuda/lib64  -lcufft -lcudart -lm
 
 CUDAOBJS=cuda.main.o \
 		cuda.xc_dual.o \
@@ -35,13 +36,13 @@ $(BINDIR):
 	mkdir -p $(BINDIR)
 
 $(PROG):$(OBJS) $(CUDAOBJS)
-	$(NVCC) $(CFLAG) -o $@ $^ -lm  $(LFLAG)
+	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LFLAG)
 
 %.o: %.c
 	$(CC) $(CFLAG) -c $<
 
 %.o: %.cu
-	$(NVCC) $(CFLAG) -c $< 
+	$(NVCC) $(NVCCFLAGS) -c $< 
 
 clean:
 	-rm *.o

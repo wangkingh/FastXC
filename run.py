@@ -1,10 +1,9 @@
 from fastxc.fastxc import FastXC
 
-ini_file = "./config/chuanxi.ini"
+ini_file = "./config/test.ini"
 
 job = FastXC(ini_file)
 
-"""
 # generate filter
 job.generate_filter()
 
@@ -15,13 +14,12 @@ job.generate_sac2spec_cmd()
 
 job.deploy_sac2spec_cmd()
 
-# xc 
+# xc
 job.generate_xc_list_dir()
 
 job.generate_xc_cmd()
 
 job.deploy_xc_cmd()
-"""
 
 # stack
 job.generate_stack_list_dir()

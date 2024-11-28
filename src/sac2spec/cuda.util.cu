@@ -60,8 +60,8 @@ size_t EstimateGpuBatch(size_t gpu_id, int npts, int nseg, int nstep, int num_ch
     // unitgpuram setting
     size_t sac_seg_size = nseg * sizeof(float);            // d_segsac
     size_t spec_seg_size = nseg * sizeof(cuComplex);       // d_segspec
-    size_t sac_seg_2x_size = nseg_2x * sizeof(float);      // d_segsac_2x with zero padding
-    size_t spec_seg_2x_size = nseg_2x * sizeof(cuComplex); // d_segspec_2x with zero padding
+    size_t sac_seg_2x_size = nseg_2x * sizeof(float);      // d_segsac_2x for zero padding
+    size_t spec_seg_2x_size = nseg_2x * sizeof(cuComplex); // d_segspec_2x for zero padding
 
     // gpuram for preprocessing rdc and rtr
     size_t pre_process_size = sizeof(double)    // d_sum
