@@ -71,3 +71,27 @@ void ArgumentProcess(int argc, char **argv, ARGUTYPE *parg)
 
   /* end of parsing command line arguments */
 }
+
+void usage()
+{
+  fprintf(
+      stderr,
+      "\nUsage:\n"
+      "specxc_mg -A virt_src_lst -B virt_sta_dir -C halfCCLength -O "
+      "outputdir -G gpu num\n"
+      "Options:\n"
+      "    -A Specify the list file of input files for the 1st station, eg virtual "
+      "source\n"
+      "    -B Specify the list file of input files for the 2nd station, eg virtual "
+      "station\n"
+      "    -O Specify the output directory for NCF files as sac format\n"
+      "    -C Half of cclenth (in seconds).\n"
+      "    -D max ncf distances (in km).\n"
+      "    -G ID of Gpu device to be launched \n"
+      "    -U number of tasks deploy on a single GPU\n"
+      "    -T number of CPUs will be used in this threads\n"
+      "    -S Save options: 4 digits binary number, 1 for save, 0 for not save for [linear,pws,tfpws,segments]\n"
+      "Version:\n"
+      "  last update by wangjx@20241127\n"
+      "  cuda version\n");
+}

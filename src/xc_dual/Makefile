@@ -1,7 +1,15 @@
-# Compiler settings
+# Compiler
 CC=gcc
 NVCC=/usr/local/cuda/bin/nvcc
+
+# cuda architecture
+ARCH = sm_89
+
+# Compiler flags
 CFLAGS=-I/usr/local/cuda/include
+NVCCFLAGS=-g -G -arch=$(ARCH)
+
+# Linker flags
 LDFLAGS=-L/usr/local/cuda/lib64 -lcufft -lcudart -lm -L/usr/lib/x86_64-linux-gnu
 
 CUDAOBJS=cuda.stransform.o \
@@ -25,9 +33,6 @@ all: $(BINDIR) $(PROG)
 
 $(BINDIR):
 	mkdir -p $(BINDIR)
-
-# Add -G flag for device debugging info
-NVCCFLAGS=-g -G
 
 $(PROG): $(OBJS) $(CUDAOBJS)
 	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LDFLAGS)

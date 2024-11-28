@@ -333,7 +333,7 @@ int main(int argc, char **argv)
         float scale = 0.1;
         DimCompute2D(&dimGrid_2D, &dimBlock_2D, nfft, nfreq);
         compute_g_matrix_kernel<<<dimGrid_2D, dimBlock_2D>>>(guassian_matrix, nfft, nfreq, scale);
-
+        printf("Number of Batches is %d\n", num_batches);
         for (int batch = 0; batch < num_batches; batch++)
         {
             // 清空临时频谱存储数组

@@ -22,6 +22,7 @@ __global__ void copyRealToComplex(float *realArray, cufftComplex *complexArray, 
     }
 }
 
+// 注意下面这个函数只计算了高斯窗的形状，gaussianModulate中将其偏置到了对应的调制频率上
 __global__ void compute_g_matrix_kernel(float *g_matrix, size_t nfft, size_t nfreq, float scale)
 {
     // width : nfft,           序列(频谱)点数, 用[col]索引
@@ -102,7 +103,10 @@ __global__ void gaussianModulate(cufftComplex *d_spectrum, cufftComplex *modulat
     size_t row = blockIdx.z * blockDim.z + threadIdx.z;   // 对应 num_trace
     if (row < num_trace && depth < nfreq && col < nfft)
     {
+        //           ****************
+        // 加depth是把调制频率的索引加到了nfft的索引上，挪到高斯窗对应的频点
         size_t modulated_spec_idx = depth + col;
+        // ****************************************
         if (modulated_spec_idx >= nfft)
             modulated_spec_idx -= nfft;                         // 环形索引处理
         size_t originalIndex = row * nfft + modulated_spec_idx; // 定位原始频谱的位置
@@ -149,7 +153,7 @@ __global__ void calculateWeight(cufftComplex *trans_all, cuComplex *weight_compl
     if (col < nfft && depth < nfreq)
     {
         size_t out_idx = depth * nfft + col; // 第depthf(nfreq_idx个调制频率), 第col列(nfft_idx个频率)
-        for (size_t row = 0; row < num_trace;row++)
+        for (size_t row = 0; row < num_trace; row++)
         {
             size_t idx = row * nfreq * nfft + depth * nfft + col;
             float fa = sqrtf(trans_all[idx].x * trans_all[idx].x + trans_all[idx].y * trans_all[idx].y);

@@ -152,6 +152,7 @@ size_t EstimateGpuBatch_TFPWS(size_t gpu_id, int nfft, int nfreq)
   }
   size_t step = 360; // 没有特殊情况下，步长为360，因为我喜欢这个数字
   size_t last_valid_batch = 0;
+
   while (reqram < availram)
   {
     d_batch += step;
@@ -178,6 +179,12 @@ size_t EstimateGpuBatch_TFPWS(size_t gpu_id, int nfft, int nfreq)
       reqram = tmp_reqram;
       step = (step == 0) ? 1 : step * 2; // 指数增长步长
     }
+  }
+  if (last_valid_batch == 0)
+  {
+    fprintf(stderr, "Not enough gpu ram required:%lu, gpu remain ram: %lu\n",
+            reqram, availram);
+    exit(1);
   }
   return last_valid_batch;
 }

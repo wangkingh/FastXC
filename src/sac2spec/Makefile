@@ -1,9 +1,15 @@
-# Compiler and linker options
+# Compiler
 CC=gcc
+# NVCC=/usr/local/cuda/bin/nvcc
 
+# cuda architecture
+# ARCH = sm_89
+
+# compiler flags
 CFLAGS=-Wall -O0 -g
+NVCCFLAGS = -g -G -arch=$(ARCH)
 
-NVCC=/usr/local/cuda/bin/nvcc
+# linker flags
 LFLAG=-L/usr/local/cuda/lib64  -lcufft -lcudart -lm
 
 CUDAOBJS=cuda.rdcrtr.o \
@@ -28,9 +34,6 @@ all: $(BINDIR) $(PROG)
 
 $(BINDIR):
 	mkdir -p $(BINDIR)
-
-# Add -G flag for device debuggin info
-NVCCFLAGS = -g -G
 
 $(PROG):$(OBJS) $(CUDAOBJS)
 	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LFLAG)

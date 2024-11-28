@@ -62,7 +62,7 @@ void process_file_list(const char *file_name, FileEntry **entries, size_t *count
     FILE *file = fopen(file_name, "r");
     char line[MAX_LINE_LENGTH];
     *count = 0;
-    *entries = malloc(1000 * sizeof(FileEntry)); // Assuming a maximum of 1000 entries
+    *entries = malloc(9999 * sizeof(FileEntry)); // Assuming a maximum of 9999 entries
 
     if (!file)
     {
@@ -70,7 +70,7 @@ void process_file_list(const char *file_name, FileEntry **entries, size_t *count
         return;
     }
 
-    while (fgets(line, sizeof(line), file) && *count < 1000)
+    while (fgets(line, sizeof(line), file) && *count < 9999)
     {
         trim_string(line); // Apply trim_string to remove any trailing whitespace or newline
         if (parse_filename(line, &(*entries)[*count]))
