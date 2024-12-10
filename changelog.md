@@ -8,6 +8,7 @@
    Introduced the `-arch` option in the top-level Makefile, allowing users to specify GPU architectures based on their device’s compute capability. For example, with an NVIDIA RTX 4090 (compute capability 8.9), use:
    ```bash
    make ... -arch=sm_89
+   ```
 
    You can compile and run `check_gpu.cu` in the `utils` folder to determine your GPU’s compute capability.
 
