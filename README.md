@@ -16,7 +16,7 @@ make
 python run.py
 
 
-### Environment Setup
+## Environment Setup
 
 To run this CUDA program, ensure your system meets the following requirements:
 
