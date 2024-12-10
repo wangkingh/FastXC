@@ -4,7 +4,7 @@ High Performance Noise Cross-Corelation Computing Code for 9-component Recording
 Using a high-performance CPU-GPU heterogeneous computing framework, this program is designed to efficiently compute single/nine-component noise cross-correlation functions (NCFs) from ambient noise data. It integrates data preprocessing, accelerated cross-correlation computation, and various stacking techniques (Linear, PWS, tf-PWS), particularly optimizing the computing process using CUDA technology. This significantly enhances processing speed and the signal-to-noise ratio of the data, making it especially suitable for handling large-scale noise datasets.
 
 ## Installation
-If you are NEW to using a CUDA-based program, Please check the [Environment Setup] (#environmnet-setup) first.
+If you are NEW to using a CUDA-based program, Please check the [Environment Setup](#environment-setup) first.
 
 ## Quick Start
 cd FastXC
