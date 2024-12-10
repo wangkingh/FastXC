@@ -29,11 +29,11 @@ To run this CUDA program, ensure your system meets the following requirements:
 Before starting, it is recommended to use the following commands to check if your environment is correctly configured:
 
 - Use the `nvidia-smi` command to check the status of your GPU and drivers.
-  ```bash
+```bash
   nvidia-smi
 ```
 This command will display details about your GPU and the current version of drivers.
 ```bash
-nvcc --version
+  nvcc --version
 ```
 This command help to confirm the version of CUDA and CUDA compiler (NVCC).
