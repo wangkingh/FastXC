@@ -62,10 +62,12 @@ nvcc --version
 This command helps confirm the CUDA and CUDA compiler (NVCC) version.
 
 ## Changelog
-see [Changelog](changelog.md)
+See [Change Log](changelog.md)
 ## Contact
 
 If you have any questions or suggestions or want to contribute to the project, open an [issue](https://github.com/wangkingh/FastXC/issues) or submit a pull request.
 
 For more direct inquiries, you can reach the author at:  
 **Email:** [wkh16@mail.ustc.edu.cn](mailto:wkh16@mail.ustc.edu.cn)
+
+It will be my great pleasure if my code can provide any help for your research!
