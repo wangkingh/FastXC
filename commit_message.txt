@@ -1,0 +1,8 @@
+Add two new sac2spec methods (new & stable):
+- new: Introduce a Gaussian filter to replace the Butterworth filter, improving processing efficiency.
+- stable: Use a time-domain Butterworth filter (less efficient, but more stable).
+
+Also, include compile-time options in the Makefile to select GPU architectures based on CUDA Compute Capability, optimizing GPU performance.
+
+You can compile the script in ~/utils and run to check the CUDA Compute Capability of your Device.
+

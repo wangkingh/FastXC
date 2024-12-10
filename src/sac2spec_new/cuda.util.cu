@@ -99,8 +99,7 @@ size_t EstimateGpuBatch(size_t gpu_id, int npts, int nseg, int nstep, int num_ch
     size_t batch = 0;
     size_t step = 100;
     size_t last_valid_batch = 0;
-    // print gpu memory usage ofgpu id in GB
-    printf("Estimated GPU memory usage: %.3f GB\n", availram * 1.0 / (1L << 30));
+
     while (true)
     {
         batch += step;
@@ -141,7 +140,6 @@ size_t EstimateGpuBatch(size_t gpu_id, int npts, int nseg, int nstep, int num_ch
         }
     }
     batch = batch > _RISTRICT_MAX_GPU_BATCH ? _RISTRICT_MAX_GPU_BATCH : batch;
-    printf("Estimated batch size: %zu\n", batch);
     return batch;
 }
 

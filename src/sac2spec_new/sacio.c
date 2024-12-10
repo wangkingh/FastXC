@@ -133,7 +133,6 @@ float*	read_sac(const char	*name,
 		SACHEAD		*hd
 	)
 {
-  printf("read_sac !!!!!!!!!!!!!!!!!!\n");
   FILE		*strm;
   float		*ar;
   unsigned	sz;
@@ -639,7 +638,7 @@ float *read_sac_buffer(const char *name, SACHEAD *sac_hd, float *buffer)
 #endif
 
   sz = sac_hd->npts * sizeof(float);
-  
+
   if (fread((char *)buffer, sz, 1, strm) != 1)
   {
     fprintf(stderr, "Error in reading SAC data %s\n", name);

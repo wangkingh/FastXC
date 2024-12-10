@@ -1,0 +1,23 @@
+2024-12-10 18:42:45,710 - INFO - Avail cpu ram: 46.947 GB
+Avail gpu ram on device0: 20.210 GB
+Estimated GPU memory usage: 20.210 GB
+Estimated batch size: 3767
+[GPU no.0]: batch = 1498, num_ch=1
+[Waiting:] Reading in SAC data, take some time...
+Done reading in SAC data.
+Writing the output spectra ... take some time
+Finish writing the output 1498 spectra
+[Waiting:] Reading in SAC data, take some time...
+Done reading in SAC data.
+Writing the output spectra ... take some time
+Finish writing the output 642 spectra
+
+2024-12-10 18:43:18,926 - INFO - vec_count is 864012
+pair_count is 1067
+size is 7375206432
+Avail gpu ram: 20.210 GB
+batch size: 540
+[Waiting:] Reading in SEGSPEC data, take some time...
+Done reading in SEGSPEC data.
+Start to calculate NCF
+

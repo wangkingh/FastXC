@@ -7,9 +7,7 @@ ARCH = sm_89
 
 # compiler flags
 CFLAGS=-Wall -O0 -g
-# NVCCFLAGS = -g -G -arch=$(ARCH)
-NVCCFLAGS = -g -G
-
+NVCCFLAGS = -g -G -arch=$(ARCH)
 
 # linker flags
 LFLAG=-L/usr/local/cuda/lib64  -lcufft -lcudart -lm
@@ -30,7 +28,7 @@ OBJS=design_filter_response.o \
 	util.o \
 	
 BINDIR=../../bin
-PROG=$(BINDIR)/sac2spec
+PROG=$(BINDIR)/sac2spec_new
 
 all: $(BINDIR) $(PROG)
 

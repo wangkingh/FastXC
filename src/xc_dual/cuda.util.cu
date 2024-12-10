@@ -1,4 +1,5 @@
 #include "cuda.util.cuh"
+#include <unistd.h>
 
 const float RAMUPPERBOUND = 0.9;
 
@@ -138,7 +139,7 @@ size_t EstimateGpuBatch_TFPWS(size_t gpu_id, int nfft, int nfreq)
   cufftEstimateMany(rank_hilb, n_hilb, inembed_hilb, istride_hilb, idist_hilb, onembed_hilb, ostride_hilb,
                     odist_hilb, CUFFT_C2C, 1, &tmpram); // 将数据从[叠后]频谱变换为解析信号
   reqram += tmpram;
-
+  
   tmpram = 0;
   cufftEstimateMany(rank_hilb, n_hilb, inembed_hilb, istride_hilb, idist_hilb, onembed_hilb, ostride_hilb,
                     odist_hilb, CUFFT_C2C, nfreq, &tmpram); // [叠后]调制频谱变换为[叠后]调制解析信号

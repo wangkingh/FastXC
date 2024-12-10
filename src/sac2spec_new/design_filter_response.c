@@ -111,38 +111,31 @@ void printButterworthFilters(const ButterworthFilter *filters, int filterCount)
 void calFilterResp(double *b, double *a, int nseg, complex *response)
 {
     int i, j;
-    int half = nseg / 2;
-
-    for (i = 0; i < half + 1; i++)
+    for (i = 0; i < nseg/2 + 1; i++)
     {
-        double normalized_freq = (double)i / (double)half;
+        float normalized_freq = (float)i / (float)(nseg / 2 + 1);
+        
+        complex B = {0, 0};
+        complex A = {0, 0};
 
-        // 使用double进行中间计算
-        double Bx = 0.0, By = 0.0;
-        double Ax = 0.0, Ay = 0.0;
-
+        // Calculate B(f) and A(f), using DTFT
         for (j = 0; j < 5; j++)
         {
-            double angle = -1.0 * M_PI * normalized_freq * (double)j;
-            double c = cos(angle);
-            double s = sin(angle);
-
-            Bx += b[j] * c;
-            By += b[j] * s;
-
-            Ax += a[j] * c;
-            Ay += a[j] * s;
+            float angle = -1 * M_PI * normalized_freq * j;
+            complex exp_val = {cos(angle), sin(angle)}; // e^(-j * 2 * pi * f * n)
+            B.x += b[j] * exp_val.x;
+            B.y += b[j] * exp_val.y;
+            A.x += a[j] * exp_val.x;
+            A.y += a[j] * exp_val.y;
         }
 
-        double magB = sqrt(Bx * Bx + By * By);
-        double magA = sqrt(Ax * Ax + Ay * Ay);
-        double magnitude = (magA == 0.0) ? 0.0 : (magB / magA);
+        // calculate magnitude and phase
+        float magnitude = sqrt(B.x * B.x + B.y * B.y) / sqrt(A.x * A.x + A.y * A.y);
+        float phase = atan2(B.y, B.x) - atan2(A.y, A.x);
 
-        double phase = atan2(By, Bx) - atan2(Ay, Ax);
-
-        // 将double结果转为float存入response
-        response[i].x = (float)(magnitude * cos(phase));
-        response[i].y = (float)(magnitude * sin(phase));
+        // calculate real and imaginary part of response
+        response[i].x = magnitude * cos(phase);
+        response[i].y = magnitude * sin(phase);
     }
 }
 

@@ -2,7 +2,7 @@
 
 #include "cuda.processing.cuh"
 #include "cuda.util.cuh"
-
+#define MAXBAND 99
 extern "C"
 {
 #include "arguproc.h"
@@ -103,6 +103,28 @@ int main(int argc, char **argv)
     int filter_count = 0;
     ButterworthFilter *filter = readButterworthFilters(argument.filter_file, &filter_count); // read in filter file
     FilterResp *myResp = processButterworthFilters(filter, filter_count, df_1x, nseg);       // Calculate filter f domain response
+
+    float f1[MAXBAND] = {0}, f2[MAXBAND] = {0}, f3[MAXBAND] = {0}, f4[MAXBAND] = {0};
+
+    // 假设 filter_count 不超过 MAXBAND
+    for (int i = 0; i < filter_count && i < MAXBAND; i++)
+    {
+        float orig_freq_low = filter[i].freq_low;
+        float orig_freq_high = filter[i].freq_high;
+
+        // 计算修改后的截止频率
+        float cutoff_low = orig_freq_low * 0.67f;   // f2拐角频率下限
+        float cutoff_high = orig_freq_high * 1.33f; // f2拐角频率上限
+
+        // 根据需要将结果存入相应数组中
+        f1[i] = cutoff_low;
+        f4[i] = cutoff_high;
+
+        // 若f1或f4需要其他相关处理，也可在此添加逻辑
+        // 比如如需存入原始频率，可这样写：
+        f2[i] = orig_freq_low;
+        f3[i] = orig_freq_high;
+    }
 
     // Parsing skip_steps
     int *skip_steps = argument.skip_steps;
@@ -287,7 +309,7 @@ int main(int argc, char **argv)
             dim3 c_fdimgrd, c_fdimblk;
             size_t fwidth = 0.5 * nseg + 1;
             DimCompute(&c_fdimgrd, &c_fdimblk, fwidth, proc_cnt);
-            filterKernel<<<c_fdimgrd, c_fdimblk>>>(d_spectrum, d_responses, nseg, fwidth, proc_cnt);
+            // filterKernel<<<c_fdimgrd, c_fdimblk>>>(d_spectrum, d_responses, nseg, fwidth, proc_cnt);
             CUFFTCHECK(cufftExecC2R(planinv, (cufftComplex *)d_spectrum, (cufftReal *)d_sacdata));
             InvNormalize2DKernel<<<dimgrd_1x, dimblk_1x>>>(d_sacdata, nseg, nseg, proc_cnt, delta);
 
@@ -301,11 +323,13 @@ int main(int argc, char **argv)
             if (do_runabs_mf)
             {
                 cisnan2DKernel<<<dimgrd_1x, dimblk_1x>>>(d_spectrum, nseg, nseg, proc_cnt);
+
                 runabs_mf(d_sacdata, d_spectrum,
                           d_filtered_sacdata, d_filtered_spectrum,
                           d_responses, d_tmp,
                           d_weight, d_tmp_weight,
                           &planinv, freq_lows,
+                          df_1x, f1, f2, f3, f4,
                           filter_count, delta, proc_batch, num_ch, nseg, MAXVAL);
             }
             else if (do_onebit)
@@ -354,7 +378,6 @@ int main(int argc, char **argv)
             CUDACHECK(cudaMemcpy2D(h_spectrum + done_step * nspec_output, nstep_valid * nspec_output * sizeof(cuComplex),
                                    d_spectrum_2x, nseg_2x * sizeof(cuComplex),
                                    nspec_output * sizeof(complex), proc_cnt, cudaMemcpyDeviceToHost));
-
             done_step++;
         }
 

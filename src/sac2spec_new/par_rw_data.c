@@ -38,6 +38,15 @@ void *read_in_sacdata(void *arg)
               tinfo->InOutList[i].sacpath);
       return (void *)-1;
     }
+    // for (int j = 0; j < 50; ++j)
+    // {
+    //   printf("(%f) ",tinfo->InOutList[i].sac_data[j]);
+    //   if ((j + 1) % 10 == 0)
+    //   {
+    //     printf("\n");
+    //   }
+    // }
+    // printf("\n\n");
   }
 
   return NULL;
