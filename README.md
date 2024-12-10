@@ -19,21 +19,19 @@ Or you can use anaconda if you are familiar with that (very suggested choice).
 
 ### Compilation
 The code is separated into two parts. The `Python` part is designed to allocate computing tasks and address other higher-level issues, while the fundamental computing part is finished using `CUDA-C` or `C.`
-For those written in `CUDA-C` or `C`, a compilation step is required.
+For those written in `CUDA-C` or `C`, a compilation step is required. Following the following steps:
 
+```bash
+cd FastXC
+make veryclean
+make
+```
 
 
 ## Quick Start
-cd FastXC
-
-
-make veryclean
-
-
-make
-
-
+```python
 python run.py
+```
 
 ## Start to do XC (Cross-Correlation)
 ## Editing the configure file
@@ -44,7 +42,7 @@ python run.py
 To run this CUDA program, ensure your system meets the following requirements:
 
 1. **NVIDIA GPU**: Your computer must have an NVIDIA GPU that supports CUDA.
-2. **CUDA Toolkit**: You must install the CUDA Toolkit, which is essential for running CUDA programs. You can download the latest version from the [NVIDIA official website](https://developer.nvidia.com/cuda-downloads).
+2. **CUDA Toolkit**: You must install the CUDA Toolkit, which is essential for running CUDA programs. The latest version can be downloaded from the [NVIDIA official website](https://developer.nvidia.com/cuda-downloads).
 3. **GPU Drivers**: Make sure that your NVIDIA GPU drivers are up-to-date to be compatible with the installed version of CUDA.
 
 ### Tools Check
