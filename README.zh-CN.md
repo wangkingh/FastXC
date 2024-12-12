@@ -160,7 +160,7 @@ nvcc --version
 ```
 
 
-## 常见问题faq
+## ❓常见问题faq
 **Q1:** 该程序是否支持 Windows 环境？ 
 
 
