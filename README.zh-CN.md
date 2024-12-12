@@ -5,7 +5,7 @@
 *切换语言 Switch Language: [English](README.md)[英语], [简体中文](README.zh-CN.md)[Simplified Chinese]
 
 ## 目录
-- [项目介绍](#项目介绍)
+- [项目介绍](#💡项目介绍)
 - [安装与环境要求](#安装与环境要求)
 - [快速开始](#快速开始)
 - [完整配置文件解析](#完整配置文件解析)
@@ -168,7 +168,7 @@ nvcc --version
 
 
 
-**Q2:** 除了算力之外，这个程序还有什么能力局限吗？
+**Q2:** 除了算力之外，这个程序还受什么计算设备性能局限？
 
 
 **A2:** 其实很大程度受限于磁盘性能，计算量其实已经被优化到了极限，但如果磁盘或者磁盘阵列很拉胯，程序效率也不高。（当然应该还是比纯CPU架构高的）
@@ -197,4 +197,4 @@ nvcc --version
 
 
 ## 📚参考文献
-
+*High-performance CPU-GPU Heterogeneous Computing Method for 9-Component Ambient Noise Cross-correlation*，Wang et al., Earthquake Research Advances. Under Review.
