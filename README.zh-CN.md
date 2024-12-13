@@ -2,7 +2,8 @@
   <img src="https://private-user-images.githubusercontent.com/38589094/394993541-1550eb2f-23be-4795-a48a-7f1a12144604.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzM5NzM1MTksIm5iZiI6MTczMzk3MzIxOSwicGF0aCI6Ii8zODU4OTA5NC8zOTQ5OTM1NDEtMTU1MGViMmYtMjNiZS00Nzk1LWE0OGEtN2YxYTEyMTQ0NjA0LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDEyMTIlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMjEyVDAzMTMzOVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPWZiZWU3OTQyMDUxYzVmYzgzMGFmY2QwMTI2MTAxZjJhODkxN2RiYzljNzFlNGNkYzRlNzAxMzY3ZmI4ZTAzMmUmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.t8WLt2ABoxLwoFi4lLLLOZ1f-c5JYcklrYRsKX4fVbk" alt="广告图片" width="300">
 </p>
 
-*切换语言 Switch Language: [English](README.md)[英语], [简体中文](README.zh-CN.md)[Simplified Chinese]
+## FastXC
+**切换语言** **Switch Language**: [English](README.md)[英语], [简体中文](README.zh-CN.md)[Simplified Chinese]
 
 ## 目录
 - [项目介绍](#项目介绍)
@@ -71,7 +72,7 @@ Device Number: 0
 编译结束之后，需要您检查`FastXC/bin`,编译生成的各个可执行文件会储存到这个文件夹里面。至少有`RotateNCF`,`extractSegments`,`ncfstack`,`sac2spec`,`xc_dual_channel`,`xc_multi_channel`。
 
 
-编译，你能可以在bin下执行这个可执行程序，查看他们的输出，检查是否编译成功。例如
+编译结束后，你可以在bin下尝试执行这些可执行程序，查看他们的输出，检查是否编译成功。例如
 ```bash
 cd FastXC/bin
 ./sac2spec
@@ -127,7 +128,7 @@ gpu_task_num = 1,1
 gpu_mem_info = 40,40
 ```
 如果你不熟悉GPU的信息含义，可以查看[计算环境](#计算环境)。
-### 开始计算
+### 开始计算示例数据
 修改完配置文件之后，进入主目录`FastXC`，在控制台键入下列命令即可运行示例代码
 ```bash
 python run.py
@@ -167,7 +168,33 @@ python run.py
 ### 计算参数配置 (Parameters)
 `[Parameters]`部分用于控制互相关计算过程中的各类参数和算法选择。主要包括频带、时频域归一化选项、叠加选项等。
 - *output_dir*: 指定存放互相关计算结果的目录(__绝对路径__)。
-- *win_len*: 
+- *win_len*: 设置互相关计算的时间窗口分段长度，单位为秒(second)
+- *delta*: 数据采样间隔(单位：秒)，这里需要准确、谨慎地设置，滤波器地设计 __严重地__ 依赖`delta`的准确性
+- *whiten*: 频谱白化的应用顺序，可选值：`BEFORE`,`AFTER`,`BOTH`,`OFF`
+    - `BEFORE`:在时间域归一化之 __前__ 进行谱白化，参考Zhang et al. (2018)的处理步骤。处理长周期数据时建议和 `normalize=RUN-ABS-MF`共同使用
+    - `AFTER` :在时间域归一化之 __后__ 进行谱白化，参考Zhang et al. (2018)的处理步骤。
+    - `BOTH`: 在时间域归一化 __前__ __后__ 均进行谱白化，一种比较激进的谱白化手段。
+    - `OFF`: 不做谱白化，一般作测试用，实际应用时不建议。
+- *normalize*: 时间域归一化的类型，可选值：`RUN-ABS`,`ONE-BIT`,`RUN-ABS-MF`,`OFF`
+    - `RUN-ABS`: 使用滑动时窗绝对值归一化
+    - `ONE-BIT`: 符号函数归一化
+    - `RUN-ABS-MF`: 分频带滑动时窗绝对值归一化 （MF: Multi Frequency）
+    - `OFF`: 不做时间域归一化，作测试用，实际应用时不建议。（对于一般数据来说，时频域归一化取其一就能使得计算结果有改进，但通常都做，Nakata et. al (2019)）
+- *norm_special*: 可选值 `CUDA`,`PYV`。无特殊情况下使用 `CUDA`，选择`PYV`会启动`sac2spec`的`Python`版本，主要作测试用，以及作为之后CPU版本程序的预处理阶段程序。
+- *bands*: 谱白化/归一化 频带，格式为 `f1_low/f1_high f2_low/f2_high ...`，单位为 __Hz__ 。
+  例如： `0.01`
+- *max_lag*:
+- *skip_step*:
+- *parallel*:
+- *cpu_count*:
+- *debug*:
+- *log_file_path*:
+- *distance_threshold*:
+- *save_flag*:
+- *rotate_dir*:
+- *todat_flag*:
+- *calculate_style*:
+
 ### 可执行文件配置 (Command)
 
 可执行文件
