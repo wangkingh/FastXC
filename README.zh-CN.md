@@ -403,13 +403,13 @@ nvcc --version
 Wang et al. (2025). "High-performance CPU-GPU Heterogeneous Computing Method for 9-Component Ambient Noise Cross-correlation." Earthquake Research Advances. Under Review.
 
 
-[Bensen, G. D., et al. (2007). "Processing seismic ambient noise data to obtain reliable broad-band surface wave dispersion measurements." Geophysical Journal International 169(3): 1239-1260.](https://dx.doi.org/10.1111/j.1365-246x.2007.03374.x)
+Bensen, G. D., et al. (2007). ["Processing seismic ambient noise data to obtain reliable broad-band surface wave dispersion measurements."](https://dx.doi.org/10.1111/j.1365-246x.2007.03374.x) Geophysical Journal International 169(3): 1239-1260.
 
 
-[Cupillard, P., et al. (2011). "The one-bit noise correlation: a theory based on the concepts of coherent and incoherent noise." Geophysical Journal International 184(3): 1397-1414.](https://doi.org/10.1111/j.1365-246X.2010.04923.x)
+Cupillard, P., et al. (2011). ["The one-bit noise correlation: a theory based on the concepts of coherent and incoherent noise."](https://doi.org/10.1111/j.1365-246X.2010.04923.x) Geophysical Journal International 184(3): 1397-1414.
 
 
-[Zhang, Y., et al. (2018). "3-D Crustal Shear-Wave Velocity Structure of the Taiwan Strait and Fujian, SE China, Revealed by Ambient Noise Tomography." Journal of Geophysical Research: Solid Earth 123(9): 8016-8031.
+Zhang, Y., et al. (2018). ["3-D Crustal Shear-Wave Velocity Structure of the Taiwan Strait and Fujian, SE China, Revealed by Ambient Noise Tomography." Journal of Geophysical Research: Solid Earth 123(9): 8016-8031.
 	Abstract The Taiwan Strait, along with the southeastern continental margin of the Eurasian plate, Fujian in SE China, is not far from the convergent boundary between the Eurasian plate and the Philippine Sea plate.](https://doi.org/10.1029/2018JB015938)
 
 
