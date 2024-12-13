@@ -400,4 +400,18 @@ nvcc --version
 
 
 ## 📚参考文献
-*High-performance CPU-GPU Heterogeneous Computing Method for 9-Component Ambient Noise Cross-correlation*，Wang et al., Earthquake Research Advances. Under Review.
+Wang et al. (2025). "High-performance CPU-GPU Heterogeneous Computing Method for 9-Component Ambient Noise Cross-correlation." Earthquake Research Advances. Under Review.
+
+
+Bensen, G. D., et al. (2007). "Processing seismic ambient noise data to obtain reliable broad-band surface wave dispersion measurements." Geophysical Journal International 169(3): 1239-1260.
+
+
+Cupillard, P., et al. (2011). "The one-bit noise correlation: a theory based on the concepts of coherent and incoherent noise." Geophysical Journal International 184(3): 1397-1414.
+
+
+Zhang, Y., et al. (2018). "3-D Crustal Shear-Wave Velocity Structure of the Taiwan Strait and Fujian, SE China, Revealed by Ambient Noise Tomography." Journal of Geophysical Research: Solid Earth 123(9): 8016-8031.
+	Abstract The Taiwan Strait, along with the southeastern continental margin of the Eurasian plate, Fujian in SE China, is not far from the convergent boundary between the Eurasian plate and the Philippine Sea plate.
+
+
+
+
