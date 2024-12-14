@@ -3,7 +3,7 @@
 </p>
 
 
-* Switch Language 切换语言: [English](README.md)[英文], [简体中文](README.zh-CN.md)*[Simplified Chinese]
+* Switch Language 切换语言: [English](README.md)[英文], [简体中文](README.zh-CN.md)[Simplified Chinese]
 
 ## FastXC
 
