@@ -162,13 +162,13 @@ __global__ void filterKernel(cuComplex *d_spectrum, cuComplex *d_response, size_
     d_spectrum[idx] = cuCmulf(d_spectrum[idx], d_response[col]);
 
     // doing conjugate, to reverse the time direction
-    d_spectrum[idx] = cuConjf(d_spectrum[idx]);
+    // d_spectrum[idx] = cuConjf(d_spectrum[idx]);
 
     // filter the second time
-    d_spectrum[idx] = cuCmulf(d_spectrum[idx], d_response[col]);
+    // d_spectrum[idx] = cuCmulf(d_spectrum[idx], d_response[col]);
 
     // doing conjugate, to reverse the time direction again
-    d_spectrum[idx] = cuConjf(d_spectrum[idx]);
+    // d_spectrum[idx] = cuConjf(d_spectrum[idx]);
   }
 }
 
