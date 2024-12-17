@@ -1,12 +1,12 @@
 # Compiler
-CC=gcc
-NVCC=/usr/local/cuda/bin/nvcc
+# CC=gcc
+# NVCC=/usr/local/cuda/bin/nvcc
 
 # cuda architecture
-ARCH = sm_89
+# ARCH=sm_89
 
-# compiler flags
-CFLAGS=-Wall -O0 -g
+# Compiler flags
+CFLAGS=-Wall -O0 -g 
 NVCCFLAGS = -g -G -arch=$(ARCH)
 
 # linker flags
@@ -15,6 +15,7 @@ LFLAG=-L/usr/local/cuda/lib64  -lcufft -lcudart -lm
 CUDAOBJS=cuda.rdcrtr.o \
 	cuda.util.o \
 	cuda.misc.o \
+	cuda.filter.o \
 	cuda.processing.o \
 	cuda.taper.o \
 	cuda.main.o \
@@ -28,7 +29,7 @@ OBJS=design_filter_response.o \
 	util.o \
 	
 BINDIR=../../bin
-PROG=$(BINDIR)/sac2spec_new
+PROG=$(BINDIR)/sac2spec_butter
 
 all: $(BINDIR) $(PROG)
 
