@@ -1,3 +1,10 @@
+# Changelog (2024-12-17)
+1. **Added and renamed four preprocessing (`sac2spec`) methods with different filtering strategies**:
+  - `sac2spec`: Frequency-domain bandpass Butterworth filter
+  - `sac2spec_butter`: Time-domain bandpass Butterworth filter
+  - `sac2spec_cos`: Frequency-domain bandpass Butterworth filter with a raised cosine window
+  - `sac2spec_super`: Zero-padded frequency-domain bandpass Butterworth filter
+
 # Changelog (2024-12-10)
 
 1. **Added `sac2spec_stable` and `sac2spec_new` Pre-processing Methods**:  
