@@ -281,7 +281,7 @@ int main(int argc, char **argv)
             CUDACHECK(cudaMemcpy2D(d_sacdata, nseg_1x * sizeof(float),
                                    h_sacdata + stepidx * nseg_1x, npts * sizeof(float),
                                    nseg_1x * sizeof(float), proc_cnt, cudaMemcpyHostToDevice));
-            preprocess(d_sacdata, d_sum, d_isum, nseg_1x, proc_cnt, TAPER_RATIO); // isnan,rtr,reman,taper
+            preprocess(d_sacdata, d_sum, d_isum, nseg_1x, proc_cnt, freq_low, delta); // isnan,rtr,reman,taper
 
             // double zero-padding before filtering, add 20241216 by wangjx
             CUDACHECK(cudaMemcpy2D(d_sacdata_2x, nseg_2x * sizeof(float), d_sacdata, nseg_1x * sizeof(float), nseg_1x * sizeof(float), proc_cnt, cudaMemcpyDeviceToDevice));

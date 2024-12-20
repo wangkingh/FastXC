@@ -5,7 +5,7 @@
 #include "cuda.rdcrtr.cuh"
 #include "cuda.taper.cuh"
 
-void preprocess(float *d_sacdata, double *d_sum, double *d_isum, int pitch, size_t proccnt, int taper_percentage);
+void preprocess(float *d_sacdata, double *d_sum, double *d_isum, int pitch, size_t proccnt, float freq_low, float delta);
 
 void runabs_mf(float *d_sacdata, float *d_filtered_sacdata, float *d_total_sacdata,
                float *d_sacdata_2x, cuComplex *d_spectrum_2x,

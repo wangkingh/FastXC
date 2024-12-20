@@ -1,7 +1,7 @@
 #include "cuda.processing.cuh"
 
 // pre-processing for sacdat: isnan, demean, detrend
-void preprocess(float *d_sacdata, double *d_sum, double *d_isum, int pitch, size_t proccnt, int taper_percentage)
+void preprocess(float *d_sacdata, double *d_sum, double *d_isum, int pitch, size_t proccnt, float freq_low, float delta)
 {
     size_t width = pitch;
     size_t height = proccnt;
@@ -37,9 +37,8 @@ void preprocess(float *d_sacdata, double *d_sum, double *d_isum, int pitch, size
 
     rtr2DKernel<<<dimgrd, dimblk>>>(d_sacdata, pitch, width, height, d_sum, d_isum);
 
-    float taper_fraction = (float)taper_percentage / 100.0;
-    size_t taper_size = width * taper_fraction;
-    timetaper2DKernel<<<dimgrd, dimblk>>>(d_sacdata, pitch, width, height, taper_size); // taper, taper percentage set in config.h
+    size_t taper_size = 2 * (1 / freq_low) / delta;
+    timetaper2DKernel<<<dimgrd, dimblk>>>(d_sacdata, pitch, width, height, taper_size); // taper
 }
 
 // multi-frequency run-abs time domain normalization

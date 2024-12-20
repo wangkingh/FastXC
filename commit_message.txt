@@ -1,5 +1,0 @@
-Add and rename four preprocessing (sac2spec) methods, each employing different filtering strategies:
-1.sac2spec: Frequency-domain bandpass Butterworth filter
-2.sac2spec_butter: Time-domain bandpass Butterworth filter
-3.sac2spec_cos: Frequency-domain bandpass Butterworth filter with a raised cosine window
-4.sac2spec_super: Zero-padded frequency-domain bandpass Butterworth filter

@@ -11,6 +11,5 @@
 #define _RISTRICT_MAX_CPU_BATCH 9999999
 #define MAXVAL 20
 #define MINVAL 1e-30
-#define TAPER_RATIO 3
 
 #endif
