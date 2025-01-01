@@ -19,6 +19,8 @@ High Performance Noise Cross-Corelation Computing Code for 9-component Recording
 - [Acknowledgements](#acknowledgements)
 - [References](#references)
 
+# Important Warning
+BUG of tfpws and pws in this code has been found, those who used a GPU with memory < 20G should take care!!
 # 💡Project Introduction
 High Performance Noise Cross-Corelation Computing Code for 9-component Recordings
 
