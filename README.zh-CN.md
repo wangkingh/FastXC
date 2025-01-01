@@ -5,6 +5,8 @@
 ## FastXC
 **切换语言** **Switch Language**: [English](README.md)[英语], [简体中文](README.zh-CN.md)[Simplified Chinese]
 
+可以点击项目Issue查看一些目前存在的bug，我正在加班加点改进！！！
+
 ## 目录
 - [项目介绍](#项目介绍)
 - [安装与环境要求](#安装与环境要求)
