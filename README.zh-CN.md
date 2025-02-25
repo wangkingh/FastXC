@@ -402,7 +402,7 @@ nvcc --version
 
 
 ## 📚参考文献
-Wang et al. (2025). "High-performance CPU-GPU Heterogeneous Computing Method for 9-Component Ambient Noise Cross-correlation." Earthquake Research Advances. Under Review.
+Wang et al. (2025). ["High-performance CPU-GPU Heterogeneous Computing Method for 9-Component Ambient Noise Cross-correlation."](https://doi.org/10.1016/j.eqrea.2024.100357) Earthquake Research Advances. In Press.
 
 
 Bensen, G. D., et al. (2007). ["Processing seismic ambient noise data to obtain reliable broad-band surface wave dispersion measurements."](https://dx.doi.org/10.1111/j.1365-246x.2007.03374.x) Geophysical Journal International 169(3): 1239-1260.
