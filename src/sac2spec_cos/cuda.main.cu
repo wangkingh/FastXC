@@ -2,7 +2,6 @@
 
 #include "cuda.processing.cuh"
 #include "cuda.util.cuh"
-#define MAXBAND 99
 extern "C"
 {
 #include "arguproc.h"

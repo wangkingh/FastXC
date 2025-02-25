@@ -6,9 +6,9 @@
 # ARCH = sm_89
 
 # compiler flags
-# CFLAGS=-Wall -O0 -g
-# NVCCFLAGS = -g -G -arch=$(ARCH)
+CFLAGS=-Wall -O0 -g
 NVCCFLAGS = -g -G -arch=$(ARCH)
+# NVCCFLAGS = -g -G -arch=$(ARCH)
 
 
 # linker flags

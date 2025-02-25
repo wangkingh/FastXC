@@ -1,14 +1,14 @@
 # Compiler
-CC=gcc
-NVCC=/usr/local/cuda/bin/nvcc
+# CC=gcc
+# NVCC=/usr/local/cuda/bin/nvcc
 
 # cuda architecture
-ARCH = sm_89
+# ARCH = sm_89
 
 # compiler flags
 CFLAGS=-Wall -O0 -g
-# NVCCFLAGS = -g -G -arch=$(ARCH)
-NVCCFLAGS = -g -G
+NVCCFLAGS = -g -G -arch=$(ARCH)
+# NVCCFLAGS = -g -G
 
 
 # linker flags

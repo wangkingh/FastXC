@@ -1,5 +1,5 @@
 # Compiler
-CC=gcc
+# CC=gcc
 # NVCC=/usr/local/cuda/bin/nvcc
 
 # cuda architecture
