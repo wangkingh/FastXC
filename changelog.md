@@ -1,3 +1,8 @@
+# Changlog (2025-03-11)
+1. **Replaced `strdup` with custom `my_strdup` to ensure portability in case the compilation environment is not POSIX-compliant.**
+  - Switched from strtok_r to the reentrant my_strtok .
+  - Refactored xc_dual code to remove unused includes and improve clarity.
+
 # Changelog (2024-12-17)
 1. **Added and renamed four preprocessing (`sac2spec`) methods with different filtering strategies**:
   - `sac2spec`: Frequency-domain bandpass Butterworth filter
