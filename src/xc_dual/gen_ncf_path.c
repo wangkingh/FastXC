@@ -1,5 +1,65 @@
 #include "gen_ncf_path.h"
 
+char *my_strdup(const char *s)
+{
+    if (!s)
+        return NULL;
+    size_t len = strlen(s) + 1;
+    char *copy = malloc(len);
+    if (copy)
+    {
+        strcpy(copy, s);
+    }
+    return copy;
+}
+
+/**
+ * my_strtok - split string into tokens
+ *
+ * @param str     the string to be split
+ * @param delim   the delimiter characters
+ * @param saveptr use to save the context of the string
+ * @return        if there is no token, return NULL, otherwise return the token
+ */
+char *my_strtok(char *str, const char *delim, char **saveptr)
+{
+    // use the context saved in the last call
+    if (str != NULL)
+    {
+        *saveptr = str;
+    }
+    // if the context is NULL, return NULL
+    if (*saveptr == NULL)
+    {
+        return NULL;
+    }
+
+    // skip the leading delimiters
+    char *start = *saveptr;
+    start += strspn(start, delim);
+    if (*start == '\0')
+    {
+        // at the end of the string, set the context to NULL
+        *saveptr = NULL;
+        return NULL;
+    }
+
+    // find the end of the token
+    char *end = start + strcspn(start, delim);
+    if (*end == '\0')
+    {
+        // when the token is the last one
+        *saveptr = NULL;
+        return start;
+    }
+
+    // use the end of the token to replace the delimiter
+    *end = '\0';
+    *saveptr = end + 1;
+
+    return start;
+}
+
 // Recursively creates directories
 void CreateDir(char *sPathName)
 {
@@ -47,10 +107,10 @@ void SplitFileName(const char *fname, const char *delimiter, char *stastr,
         return; // check parameters
     }
 
-    char *fname_copy = strdup(fname); // in oder not to change the original fname
+    char *fname_copy = my_strdup(fname); // in oder not to change the original fname
     char *saveptr;
 
-    char *result = strtok_r(fname_copy, delimiter, &saveptr);
+    char *result = my_strtok_r(fname_copy, delimiter, &saveptr);
     if (result)
     {
         strcpy(stastr, result);
@@ -60,7 +120,7 @@ void SplitFileName(const char *fname, const char *delimiter, char *stastr,
         goto cleanup;
     }
 
-    result = strtok_r(NULL, delimiter, &saveptr);
+    result = my_strtok_r(NULL, delimiter, &saveptr);
     if (result)
     {
         strcpy(yearstr, result);
@@ -70,7 +130,7 @@ void SplitFileName(const char *fname, const char *delimiter, char *stastr,
         goto cleanup;
     }
 
-    result = strtok_r(NULL, delimiter, &saveptr);
+    result = my_strtok_r(NULL, delimiter, &saveptr);
     if (result)
     {
         strcpy(jdaystr, result);
@@ -80,7 +140,7 @@ void SplitFileName(const char *fname, const char *delimiter, char *stastr,
         goto cleanup;
     }
 
-    result = strtok_r(NULL, delimiter, &saveptr);
+    result = my_strtok_r(NULL, delimiter, &saveptr);
     if (result)
     {
         strcpy(hmstr, result);
@@ -90,7 +150,7 @@ void SplitFileName(const char *fname, const char *delimiter, char *stastr,
         goto cleanup;
     }
 
-    result = strtok_r(NULL, delimiter, &saveptr);
+    result = my_strtok_r(NULL, delimiter, &saveptr);
     if (result)
     {
         strcpy(chnstr, result);

@@ -9,9 +9,14 @@
 #include <sys/types.h>
 #include <libgen.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "sac.h"
 #include "segspec.h"
 #include "cal_dist.h"
+
+char *my_strdup(const char *s);
+
+char *my_strtok(char *str, const char *delim, char **saveptr);
 
 void CreateDir(char *sPathName);
 
