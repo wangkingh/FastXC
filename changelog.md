@@ -3,6 +3,9 @@
   - Switched from strtok_r to the reentrant my_strtok .
   - Refactored xc_dual code to remove unused includes and improve clarity.
 
+# Changlog (2025-02-xx)
+1. **Fix some problem in Makefile to ensure using specific "-arch=sm_xx" options**
+   
 # Changelog (2024-12-17)
 1. **Added and renamed four preprocessing (`sac2spec`) methods with different filtering strategies**:
   - `sac2spec`: Frequency-domain bandpass Butterworth filter
