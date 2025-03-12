@@ -110,7 +110,7 @@ void SplitFileName(const char *fname, const char *delimiter, char *stastr,
     char *fname_copy = my_strdup(fname); // in oder not to change the original fname
     char *saveptr;
 
-    char *result = my_strtok_r(fname_copy, delimiter, &saveptr);
+    char *result = my_strtok(fname_copy, delimiter, &saveptr);
     if (result)
     {
         strcpy(stastr, result);
@@ -120,7 +120,7 @@ void SplitFileName(const char *fname, const char *delimiter, char *stastr,
         goto cleanup;
     }
 
-    result = my_strtok_r(NULL, delimiter, &saveptr);
+    result = my_strtok(NULL, delimiter, &saveptr);
     if (result)
     {
         strcpy(yearstr, result);
@@ -130,7 +130,7 @@ void SplitFileName(const char *fname, const char *delimiter, char *stastr,
         goto cleanup;
     }
 
-    result = my_strtok_r(NULL, delimiter, &saveptr);
+    result = my_strtok(NULL, delimiter, &saveptr);
     if (result)
     {
         strcpy(jdaystr, result);
@@ -140,7 +140,7 @@ void SplitFileName(const char *fname, const char *delimiter, char *stastr,
         goto cleanup;
     }
 
-    result = my_strtok_r(NULL, delimiter, &saveptr);
+    result = my_strtok(NULL, delimiter, &saveptr);
     if (result)
     {
         strcpy(hmstr, result);
@@ -150,7 +150,7 @@ void SplitFileName(const char *fname, const char *delimiter, char *stastr,
         goto cleanup;
     }
 
-    result = my_strtok_r(NULL, delimiter, &saveptr);
+    result = my_strtok(NULL, delimiter, &saveptr);
     if (result)
     {
         strcpy(chnstr, result);
