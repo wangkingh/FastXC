@@ -125,7 +125,8 @@ int main(int argc, char **argv)
     // 开辟空间
     GpuMalloc((void **)&d_src_buffer, batch * vec_size);
     GpuMalloc((void **)&d_sta_buffer, batch * vec_size);
-    GpuMalloc((void **)&d_ncf_freq_buffer_multi_steps, batch * vec_size * sizeof(cuComplex)); // 长度是输入的两倍,因为输入数据只保留了一半的频谱
+    // GpuMalloc((void **)&d_ncf_freq_buffer_multi_steps, batch * vec_size * sizeof(cuComplex)); // 长度是输入的两倍,因为输入数据只保留了一半的频谱
+    GpuMalloc((void **)&d_ncf_freq_buffer_multi_steps, batch * vec_size); // 长度是输入的两倍,因为输入数据只保留了一半的频谱
     GpuMalloc((void **)&d_ncf_freq_buffer, batch * nfft_cc * sizeof(cuComplex));
     GpuMalloc((void **)&d_ncf_time_buffer, batch * nfft_cc * sizeof(float)); //
     GpuMalloc((void **)&d_ncf_buffer_all, pair_count * npts_ncf * sizeof(float));
@@ -158,7 +159,8 @@ int main(int argc, char **argv)
         // 初始化计算数组
         CUDACHECK(cudaMemcpy(d_src_buffer, src_buffer + start_index * vec_count, current_batch * vec_size, cudaMemcpyHostToDevice));
         CUDACHECK(cudaMemcpy(d_sta_buffer, sta_buffer + start_index * vec_count, current_batch * vec_size, cudaMemcpyHostToDevice));
-        CUDACHECK(cudaMemset(d_ncf_freq_buffer_multi_steps, 0, current_batch * vec_size * sizeof(cuComplex)));
+        // CUDACHECK(cudaMemset(d_ncf_freq_buffer_multi_steps, 0, current_batch * vec_size * sizeof(cuComplex)));
+        CUDACHECK(cudaMemset(d_ncf_freq_buffer_multi_steps, 0, current_batch * vec_size));
         CUDACHECK(cudaMemset(d_ncf_freq_buffer, 0, current_batch * nfft_cc * sizeof(cuComplex)));
         CUDACHECK(cudaMemset(d_ncf_time_buffer, 0, current_batch * nfft_cc * sizeof(float)));
         // 以 nspec为宽，nstep*current_batch为高, 将所有频谱一次性相乘完
