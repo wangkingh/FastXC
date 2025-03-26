@@ -1,3 +1,9 @@
+# Changelog (2025-03-26)
+
+1. **fix**: Corrected the cudaMemset call to remove the redundant sizeof(cuComplex) multiplier. in src/xc_dual/cuda.main.cu
+
+Previously, the call used current_batch * vec_size * sizeof(cuComplex), leading to an incorrect byte size. Now it correctly uses current_batch * vec_size, ensuring the memset operation covers the intended range.
+
 # Changlog (2025-03-11)
 1. **Replaced `strdup` with custom `my_strdup` to ensure portability in case the compilation environment is not POSIX-compliant.**
   - Switched from strtok_r to the reentrant my_strtok .
