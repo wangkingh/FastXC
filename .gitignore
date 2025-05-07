@@ -1,0 +1,54 @@
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.Python
+
+# ---------- C / CUDA ----------
+# 对象文件、静态/动态库、编译依赖
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.d
+*.dSYM/
+*.exe
+
+# ---------- 可执行产物 ----------
+/bin/
+*.out
+*.run
+*.stackdump
+
+# ---------- 构建系统 ----------
+/build/
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+
+# ---------- IDE / 编辑器 ----------
+.vscode/
+.idea/
+*.swp
+*~
+
+# ---------- 日志 / 临时 ----------
+*.log
+*.tmp
+*.bak
+# 压缩归档
+*.zip
+*.tar.gz
+*.tgz
+
+# ---------- Jupyter ----------
+.ipynb_checkpoints/
+
+# ---------- 依赖镜像 ----------
+.env/
+.venv/
+.envrc
+
