@@ -52,3 +52,11 @@ cmake_install.cmake
 .venv/
 .envrc
 
+
+# ─── Python 运行产生的缓存 ──────────────────────────────────────────
+__pycache__/
+*.py[cod]          # .pyc .pyo .pyd
+
+# ─── 临时 / 调试日志 ───────────────────────────────────────────────
+*.log
+log_test_file.txt

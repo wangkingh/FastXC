@@ -5,6 +5,7 @@
 #include "cuda.util.cuh"
 #include "cuda.pws_util.cuh"
 #include "cuda.stransform.cuh"
+#include "cuda.estimate_batch.cuh"
 #include "cuda.xc_dual.cuh"
 #include <stdlib.h>
 extern "C"
@@ -28,6 +29,7 @@ int main(int argc, char **argv)
     char *ncf_dir = argument.ncf_dir;
     size_t gpu_id = argument.gpu_id;
     int save_linear = argument.save_linear;
+    int gpu_num = argument.gpu_num;
     int save_pws = argument.save_pws;
     int save_tfpws = argument.save_tfpws;
     int save_segment = argument.save_segment;
@@ -66,7 +68,6 @@ int main(int argc, char **argv)
     float dt = src_segspec_hd.dt;
     int nfft_cc = 2 * (nspec - 1);
     size_t vec_count = nstep * nspec;              // 单到源/台数据的点数
-    printf("vec_count is %lu\n", vec_count);       // 单到源/台数据的点数
     size_t vec_size = vec_count * sizeof(complex); // 单道源/台的大小(比特)
 
     // ===================== 开辟 host 内存空间 ==========================
@@ -212,188 +213,10 @@ int main(int argc, char **argv)
 
     // ============================== 分 配 空 间 =========================================
     float *d_linear_stack = NULL; // 保存线性叠加结果
-    float *d_pw_stack = NULL;     // 仅保留相位加权叠加结果时用到
-    float *d_tfpw_stack = NULL;   // 仅保留时频域相位加权叠加结果时用到
-    cuComplex *d_spectrum = NULL; // 输入时间序列对应的频谱,用于希尔伯特变换
-
     GpuMalloc((void **)&d_linear_stack, nfft * sizeof(float));
-    GpuMalloc((void **)&d_spectrum, num_trace * nfft * sizeof(cufftComplex));
-
-    // =====0. 线性叠加. 无论是否输出线性叠加结果，这一步都需要计算,因为这是后续加权算法的基础=====
     DimCompute1D(&dimGrid_1D, &dimBlock_1D, nfft);
     linearSumTraces<<<dimGrid_1D, dimBlock_1D>>>(d_ncf_buffer_all, d_linear_stack, num_trace, nfft);
-
-    // =====0.5 希尔伯特变换，无论是pws还是tf-pws,都需要进行希尔伯特变换将数组变为解析信号========
-    // 创建给希尔伯特变换的FFT计划,执行正变换,将每一道数据转换为频率
-    int rank_hilb = 1;
-    int n_hilb[1] = {(int)nfft};
-    int inembed_hilb[1] = {(int)nfft};
-    int onembed_hilb[1] = {(int)nfft};
-    int istride_hilb = 1;
-    int idist_hilb = (int)nfft;
-    int ostride_hilb = 1;
-    int odist_hilb = (int)nfft;
-    if (save_pws == 1 || save_tfpws == 1)
-    {
-        cufftHandle plan_fwd;
-        CufftPlanAlloc(&plan_fwd, rank_hilb, n_hilb, inembed_hilb, istride_hilb, idist_hilb, onembed_hilb, ostride_hilb, odist_hilb, CUFFT_R2C, num_trace);
-        CUFFTCHECK(cufftExecR2C(plan_fwd, (cufftReal *)d_ncf_buffer_all, (cufftComplex *)d_spectrum));
-        DimCompute2D(&dimGrid_2D, &dimBlock_2D, nfft, num_trace);
-        hilbertTransformKernel<<<dimGrid_2D, dimBlock_2D>>>(d_spectrum, nfft, num_trace);
-    }
-
-    // ======================1. PWS叠加, 使用蒋磊代码=======================================
-    if (save_pws == 1)
-    {
-        // 为 PWS 计算开辟空间
-        cuComplex *hilbert_complex = NULL; // 创建储存反变换后的解析信号的数组
-        cuComplex *analyze_mean;           // 解析信号求和再求平均,原代码中的divide_mean
-        float *abs_hilb_amp;               // analyze_mean的绝对值,作为权重调制线性叠加的结果
-        float *weight;                     // 存储由多道解析信号加和得到的权重
-        cufftHandle plan_inv_pws;          // C2C 用于将希尔伯特频谱转变为解析信号
-        CUDACHECK(cudaMalloc((void **)&hilbert_complex, num_trace * nfft * sizeof(cuComplex)));
-        CUDACHECK(cudaMalloc(&abs_hilb_amp, num_trace * nfft * sizeof(float)));
-        CUDACHECK(cudaMalloc(&analyze_mean, nfft * sizeof(cufftComplex)));
-        CUDACHECK(cudaMalloc(&weight, nfft * sizeof(float)));
-        CUDACHECK(cudaMalloc(&d_pw_stack, nfft * sizeof(float)));
-        cufftPlanMany(&plan_inv_pws, rank_hilb, n_hilb, inembed_hilb, istride_hilb, idist_hilb, onembed_hilb, ostride_hilb, odist_hilb, CUFFT_C2C, num_trace);
-        DimCompute2D(&dimGrid_2D, &dimBlock_2D, nfft, num_trace);
-
-        // C2C 反变换, 希尔伯特频谱[d_spectrum]->解析信号[hilbert_complex]
-        CUFFTCHECK(cufftExecC2C(plan_inv_pws, d_spectrum, hilbert_complex, CUFFT_INVERSE));
-
-        // 归一化解析信号到单位圆上,nfft归一化因子用来控制序列能量
-        DimCompute1D(&dimGrid_1D, &dimBlock_1D, nfft * num_trace);
-        cudaNormalizeComplex<<<dimGrid_1D, dimBlock_1D>>>(hilbert_complex, nfft * num_trace, nfft);
-
-        // 计算权重并使用权重归一化
-        DimCompute1D(&dimGrid_1D, &dimBlock_1D, nfft);
-        cudaMean<<<dimGrid_1D, dimBlock_1D>>>(hilbert_complex, analyze_mean, num_trace, nfft);
-        cudaMultiply<<<dimGrid_1D, dimBlock_1D>>>(d_linear_stack, analyze_mean, d_pw_stack, nfft);
-
-        // 释放线性叠加的显卡空间
-        GpuFree((void **)&abs_hilb_amp);
-        GpuFree((void **)&hilbert_complex);
-        GpuFree((void **)&analyze_mean);
-        GpuFree((void **)&weight);
-        cufftDestroy(plan_inv_pws);
-    }
-
-    // ======== 2. tf-pws 时频域相位加权叠加, 修改自 Li Guoliang 的程序 ===========
-    if (save_tfpws == 1)
-    {
-        // 2.0 计算一些参数
-        size_t nfreq = nfft / 2 + 1; // 设置调制频率数, 长度等同于Nyquist采样频率
-        float weight_order = 1;      // 设置加权阶数
-
-        // 2.1 初始化参数, 分配 显卡 内存
-        float *guassian_matrix;  // 高斯调制矩阵
-        cuComplex *tfpws_weight; // 权重, 规模为nfft*nfreq
-
-        cufftComplex *d_spectrum_trace;        // 线性叠加结果对应的频谱
-        cufftComplex *modulatedAnalysis_trace; // 调制后的线性叠加解析信号, 规模为1*nfft*nfreq
-
-        cufftComplex *d_tfpw_stack_complex; // 加权之后的tf-pws 数据, 规模为1*nfft
-        cufftComplex *modulatedAnalysis;    // 调制后的解析信号, 规模为num_trace*nfft*nfreq
-        cufftComplex *d_spectrum_temp;      // 临时存放待调制的频谱
-
-        // 为高斯矩阵分配空间
-        CUDACHECK(cudaMalloc((void **)&guassian_matrix, nfreq * nfft * sizeof(float)));  // 高斯调制矩阵
-        CUDACHECK(cudaMalloc((void **)&tfpws_weight, nfreq * nfft * sizeof(cuComplex))); // 权重矩阵
-
-        // 叠后数据处理,解析信号以及调制后的时频谱
-        CUDACHECK(cudaMalloc((void **)&d_spectrum_trace, nfft * sizeof(cufftComplex)));
-        CUDACHECK(cudaMalloc((void **)&modulatedAnalysis_trace, nfreq * nfft * sizeof(cufftComplex)));
-
-        // 输出的数据
-        CUDACHECK(cudaMalloc((void **)&d_tfpw_stack_complex, nfft * sizeof(cufftComplex)));
-        CUDACHECK(cudaMalloc((void **)&d_tfpw_stack, nfft * sizeof(float)));
-
-        // 2.0.0 计算批次处理的批次数量, 批处理部分空间分配
-        int num_batch_trace = EstimateGpuBatch_TFPWS(gpu_id, nfft, nfreq);
-        num_batch_trace = num_batch_trace > num_trace ? num_trace : num_batch_trace;
-        int num_batches = (num_trace + num_batch_trace - 1) / num_batch_trace; // 计算需要多少批次
-        CUDACHECK(cudaMalloc((void **)&modulatedAnalysis, num_batch_trace * nfreq * nfft * sizeof(cufftComplex)));
-        CUDACHECK(cudaMalloc((void **)&d_spectrum_temp, num_batch_trace * nfft * sizeof(cufftComplex)));
-
-        // 创建FFT计划
-        cufftHandle planinv_tfpws, planfwd_trace, planinv_trace, planinv_trace_one;
-
-        cufftPlanMany(&planinv_tfpws, rank_hilb, n_hilb, inembed_hilb, istride_hilb, idist_hilb,
-                      onembed_hilb, ostride_hilb, odist_hilb, CUFFT_C2C, num_batch_trace * nfreq); // 将调制后的时频谱从频谱变换为解析信号,用于计算权重
-
-        cufftPlanMany(&planfwd_trace, rank_hilb, n_hilb, inembed_hilb, istride_hilb, idist_hilb,
-                      onembed_hilb, ostride_hilb, odist_hilb, CUFFT_R2C, 1); // 将[叠后]的数据进行希尔伯特变换
-
-        cufftPlanMany(&planinv_trace, rank_hilb, n_hilb, inembed_hilb, istride_hilb, idist_hilb,
-                      onembed_hilb, ostride_hilb, odist_hilb, CUFFT_C2C, nfreq); // 用于[叠后]调制频谱的反变换
-
-        cufftPlanMany(&planinv_trace_one, rank_hilb, n_hilb, inembed_hilb, istride_hilb, idist_hilb,
-                      onembed_hilb, ostride_hilb, odist_hilb, CUFFT_C2C, 1); // 将数据从加权后的频谱变换为解析信号
-
-        // 预先计算高斯调制矩阵
-        float scale = 0.1;
-        DimCompute2D(&dimGrid_2D, &dimBlock_2D, nfft, nfreq);
-        compute_g_matrix_kernel<<<dimGrid_2D, dimBlock_2D>>>(guassian_matrix, nfft, nfreq, scale);
-        printf("Number of Batches is %d\n", num_batches);
-        for (int batch = 0; batch < num_batches; batch++)
-        {
-            // 清空临时频谱存储数组
-            CUDACHECK(cudaMemset(d_spectrum_temp, 0, num_batch_trace * nfft * sizeof(cufftComplex)));
-
-            int batch_size = (batch == num_batches - 1) ? num_trace - batch * num_batch_trace : num_batch_trace;
-            int offset = batch * num_batch_trace * nfft;
-
-            // 拷贝计算好的希尔伯特解析信号到临时频谱
-            cudaMemcpy(d_spectrum_temp, d_spectrum + offset, batch_size * nfft * sizeof(cufftComplex), cudaMemcpyDeviceToDevice);
-
-            // 执行频率域高斯窗调制
-            DimCompute3D(&dimGrid_3D, &dimBlock_3D, nfft, nfreq, batch_size);
-            gaussianModulate<<<dimGrid_3D, dimBlock_3D>>>(d_spectrum_temp, modulatedAnalysis, guassian_matrix, batch_size, nfreq, nfft);
-
-            // 执行逆变换,将调制后的频谱转换为解析信号
-            CUFFTCHECK(cufftExecC2C(planinv_tfpws, modulatedAnalysis, modulatedAnalysis, CUFFT_INVERSE));
-
-            // 计算权重
-            DimCompute2D(&dimGrid_2D, &dimBlock_2D, nfft, nfreq);
-            calculateWeight<<<dimGrid_2D, dimBlock_2D>>>(modulatedAnalysis, tfpws_weight, nfft, nfreq, batch_size);
-        }
-
-        // 叠后数据的 Stockwell 变换, 包括希尔伯特变换和高斯调制
-        CUFFTCHECK(cufftExecR2C(planfwd_trace, (cufftReal *)d_linear_stack, (cufftComplex *)d_spectrum_trace));
-        DimCompute2D(&dimGrid_2D, &dimBlock_2D, nfft, 1);
-        hilbertTransformKernel<<<dimGrid_2D, dimBlock_2D>>>(d_spectrum_trace, nfft, 1); // 单道希尔伯特变换
-        DimCompute3D(&dimGrid_3D, &dimBlock_3D, nfft, nfreq, 1);
-        gaussianModulate<<<dimGrid_3D, dimBlock_3D>>>(d_spectrum_trace, modulatedAnalysis_trace, guassian_matrix, 1, nfreq, nfft);
-        CUFFTCHECK(cufftExecC2C(planinv_trace, modulatedAnalysis_trace, modulatedAnalysis_trace, CUFFT_INVERSE));
-
-        // tfpws_weight 调制 叠后数据S变换, modulatedSpectrum_trace
-        DimCompute2D(&dimGrid_2D, &dimBlock_2D, nfft, nfreq);
-        applyWeight<<<dimGrid_2D, dimBlock_2D>>>(modulatedAnalysis_trace, tfpws_weight, nfreq, nfft, weight_order);
-
-        // S 变换逆变换, 亦即加和各个序列频谱点上所有的调制频率窗对应的值
-        DimCompute1D(&dimGrid_1D, &dimBlock_1D, nfft);
-        sumComplexSpectrumSimple<<<dimGrid_1D, dimBlock_1D>>>(modulatedAnalysis_trace, d_spectrum_trace, nfreq, nfft);
-
-        CUFFTCHECK(cufftExecC2C(planinv_trace_one, d_spectrum_trace, d_tfpw_stack_complex, CUFFT_INVERSE));
-
-        // 提取d_tfpw_stack_complex的实部
-        DimCompute1D(&dimGrid_1D, &dimBlock_1D, nfft);
-        extractReal<<<dimGrid_1D, dimBlock_1D>>>(d_tfpw_stack, d_tfpw_stack_complex, nfft);
-
-        // 释放设备内存
-        GpuFree((void **)&guassian_matrix);
-        GpuFree((void **)&modulatedAnalysis);
-        GpuFree((void **)&d_spectrum_trace);
-        GpuFree((void **)&modulatedAnalysis_trace);
-        GpuFree((void **)&d_tfpw_stack_complex);
-
-        // 销毁 FFT 计划
-        cufftDestroy(planinv_tfpws);
-        cufftDestroy(planfwd_trace);
-        cufftDestroy(planinv_trace);
-        cufftDestroy(planinv_trace_one);
-    }
+    cudaDeviceSynchronize(); // 确保线性叠加完成
 
     // ====================== 生成输出文件的文件名 ===============================
     char src_file_name[MAXNAME];
@@ -419,8 +242,6 @@ int main(int argc, char **argv)
 
     snprintf(ccf_name_segment, sizeof(ccf_name_segment), "%s-%s.%s-%s.sac_segment",
              src_station, sta_station, src_channel, sta_channel);
-
-    // char ccf_name[MAXNAME];
     char ccf_dir[MAXLINE];
     char ccf_path[2 * MAXLINE];
     // =================== 写 出 线 性 叠 加 数 据======================
@@ -433,30 +254,6 @@ int main(int argc, char **argv)
         snprintf(ccf_path, 2 * MAXLINE, "%s/%s", ccf_dir, ccf_name);
         write_sac(ccf_path, ncf_hd, linear_stack); // 使用新的文件名写文件
         CpuFree((void **)&linear_stack);
-    }
-
-    // ================= 写 出 相位 加 权 叠 加 数 据 ===============================
-    if (save_pws == 1)
-    {
-        float *pw_stack = (float *)malloc(nfft * sizeof(float)); // 相位加权叠加结果
-        CUDACHECK(cudaMemcpy(pw_stack, d_pw_stack, nfft * sizeof(float), cudaMemcpyDeviceToHost));
-        snprintf(ccf_dir, sizeof(ccf_dir), "%s/pws/%s-%s/", ncf_dir, src_station, sta_station);
-        CreateDir(ccf_dir);
-        snprintf(ccf_path, 2 * MAXLINE, "%s/%s", ccf_dir, ccf_name);
-        write_sac(ccf_path, ncf_hd, pw_stack); // 使用新的文件名写文件
-        CpuFree((void **)&pw_stack);
-    }
-
-    // ==================== 写出 时频域 相位加权 叠加 结果 ===============================
-    if (save_tfpws == 1)
-    {
-        float *tfpw_stack = (float *)malloc(nfft * sizeof(float)); // 时频域相位加权叠加结果
-        CUDACHECK(cudaMemcpy(tfpw_stack, d_tfpw_stack, nfft * sizeof(float), cudaMemcpyDeviceToHost));
-        snprintf(ccf_dir, sizeof(ccf_dir), "%s/tfpws/%s-%s/", ncf_dir, src_station, sta_station);
-        CreateDir(ccf_dir);
-        snprintf(ccf_path, 2 * MAXLINE, "%s/%s", ccf_dir, ccf_name);
-        write_sac(ccf_path, ncf_hd, tfpw_stack); // 使用新的文件名写文件
-        CpuFree((void **)&tfpw_stack);
     }
 
     // ================  写入 每一时间段计算的 NCF 结果 ============================
@@ -519,10 +316,290 @@ int main(int argc, char **argv)
         CpuFree((void **)&ncf_segments_buffer);
     }
 
+    if ((save_pws == 0) && (save_tfpws == 0))
+    {
+        GpuFree((void **)d_ncf_buffer_all);
+        GpuFree((void **)d_linear_stack);
+        return 0;
+    }
+
+    // 相位加权叠加部分
+    cuComplex *d_spectrum = NULL; // 输入时间序列对应的频谱,用于希尔伯特变换
+    GpuMalloc((void **)&d_spectrum, num_trace * nfft * sizeof(cufftComplex));
+
+    // =====0.5 希尔伯特变换，无论是pws还是tf-pws,都需要进行希尔伯特变换将数组变为解析信号========
+    // 创建给希尔伯特变换的FFT计划,执行正变换,将每一道数据转换为频率
+    int rank_hilb = 1;
+    int n_hilb[1] = {(int)nfft};
+    int inembed_hilb[1] = {(int)nfft};
+    int onembed_hilb[1] = {(int)nfft};
+    int istride_hilb = 1;
+    int idist_hilb = (int)nfft;
+    int ostride_hilb = 1;
+    int odist_hilb = (int)nfft;
+
+    cufftHandle plan_fwd;
+    CufftPlanAlloc(&plan_fwd, rank_hilb, n_hilb, inembed_hilb, istride_hilb, idist_hilb, onembed_hilb, ostride_hilb, odist_hilb, CUFFT_R2C, num_trace);
+    CUFFTCHECK(cufftExecR2C(plan_fwd, (cufftReal *)d_ncf_buffer_all, (cufftComplex *)d_spectrum));
+    DimCompute2D(&dimGrid_2D, &dimBlock_2D, nfft, num_trace);
+    hilbertTransformKernel<<<dimGrid_2D, dimBlock_2D>>>(d_spectrum, nfft, num_trace);
+
+    // ======================1. PWS叠加, 使用蒋磊代码=======================================
+    if (save_pws == 1)
+    {
+        float *d_pw_stack = NULL; // 仅保留相位加权叠加结果时用到
+        // 为 PWS 计算开辟空间
+        cuComplex *hilbert_complex = NULL; // 创建储存反变换后的解析信号的数组
+        cuComplex *analyze_mean;           // 解析信号求和再求平均,原代码中的divide_mean
+        float *abs_hilb_amp;               // analyze_mean的绝对值,作为权重调制线性叠加的结果
+        float *weight;                     // 存储由多道解析信号加和得到的权重
+        cufftHandle plan_inv_pws;          // C2C 用于将希尔伯特频谱转变为解析信号
+        CUDACHECK(cudaMalloc((void **)&hilbert_complex, num_trace * nfft * sizeof(cuComplex)));
+        CUDACHECK(cudaMalloc(&abs_hilb_amp, num_trace * nfft * sizeof(float)));
+        CUDACHECK(cudaMalloc(&analyze_mean, nfft * sizeof(cufftComplex)));
+        CUDACHECK(cudaMalloc(&weight, nfft * sizeof(float)));
+        CUDACHECK(cudaMalloc(&d_pw_stack, nfft * sizeof(float)));
+        cufftPlanMany(&plan_inv_pws, rank_hilb, n_hilb, inembed_hilb, istride_hilb, idist_hilb, onembed_hilb, ostride_hilb, odist_hilb, CUFFT_C2C, num_trace);
+        DimCompute2D(&dimGrid_2D, &dimBlock_2D, nfft, num_trace);
+
+        // C2C 反变换, 希尔伯特频谱[d_spectrum]->解析信号[hilbert_complex]
+        CUFFTCHECK(cufftExecC2C(plan_inv_pws, d_spectrum, hilbert_complex, CUFFT_INVERSE));
+
+        // 归一化解析信号到单位圆上,nfft归一化因子用来控制序列能量
+        DimCompute1D(&dimGrid_1D, &dimBlock_1D, nfft * num_trace);
+        cudaNormalizeComplex<<<dimGrid_1D, dimBlock_1D>>>(hilbert_complex, nfft * num_trace, nfft);
+
+        // 计算权重并使用权重归一化
+        DimCompute1D(&dimGrid_1D, &dimBlock_1D, nfft);
+        cudaMean<<<dimGrid_1D, dimBlock_1D>>>(hilbert_complex, analyze_mean, num_trace, nfft);
+        cudaMultiply<<<dimGrid_1D, dimBlock_1D>>>(d_linear_stack, analyze_mean, d_pw_stack, nfft);
+
+        // 释放线性叠加的显卡空间
+        GpuFree((void **)&abs_hilb_amp);
+        GpuFree((void **)&hilbert_complex);
+        GpuFree((void **)&analyze_mean);
+        GpuFree((void **)&weight);
+        cufftDestroy(plan_inv_pws);
+
+        float *pw_stack = (float *)malloc(nfft * sizeof(float)); // 相位加权叠加结果
+        CUDACHECK(cudaMemcpy(pw_stack, d_pw_stack, nfft * sizeof(float), cudaMemcpyDeviceToHost));
+        snprintf(ccf_dir, sizeof(ccf_dir), "%s/pws/%s-%s/", ncf_dir, src_station, sta_station);
+        CreateDir(ccf_dir);
+        snprintf(ccf_path, 2 * MAXLINE, "%s/%s", ccf_dir, ccf_name);
+        write_sac(ccf_path, ncf_hd, pw_stack); // 使用新的文件名写文件
+        CpuFree((void **)&pw_stack);
+        GpuFree((void **)&d_pw_stack);
+        cudaDeviceSynchronize(); 
+    }
+
+    // ======== 2. tf-pws 时频域相位加权叠加, 修改自 Li Guoliang 的程序 ===========
+    if (save_tfpws == 1)
+    {
+        float *d_tfpw_stack = NULL;
+        // 2.0 计算一些参数
+        size_t num_freq_bins = nfft / 2 + 1; // 设置调制频率数, 长度等同于Nyquist采样频率
+        size_t freq_batch_size = EstimateFreqBatchSize(
+            gpu_id,
+            num_trace,
+            nfft,
+            num_freq_bins,
+            gpu_num,
+            0.8f);
+
+        size_t num_freq_batches = (num_freq_bins + freq_batch_size - 1) / freq_batch_size;
+        float weight_order = 1; // 设置加权阶数
+        float scale = 0.1;      // 设置高斯窗的宽度, 0.1是一个比较好的值, 0.2会导致频谱变得很宽
+
+        // ========== 2.1 分配 GPU 内存 ============
+        // (A) 权重矩阵: 大小 [num_freq_bins, nfft], 复数
+        cuComplex *d_tfpws_weight;
+        CUDACHECK(cudaMalloc(&d_tfpws_weight, num_freq_bins * nfft * sizeof(cuComplex)));
+        CUDACHECK(cudaMemset(d_tfpws_weight, 0, num_freq_bins * nfft * sizeof(cuComplex)));
+
+        // (B) TF-PWS 最终输出(复数 & 实数)
+        cufftComplex *d_tfpw_stack_complex;
+        CUDACHECK(cudaMalloc((void **)&d_tfpw_stack_complex, nfft * sizeof(cufftComplex)));
+        CUDACHECK(cudaMalloc((void **)&d_tfpw_stack, nfft * sizeof(float)));
+
+        // (C) 叠后数据频谱 + 调制后的叠后数据 (时频表示)
+        cufftComplex *d_stacked_spectrum;    // [nfft]  (仅1道叠后数据)
+        cufftComplex *d_st_stacked_spectrum; // [nfft * num_freq_bins] (S变换结果)
+        CUDACHECK(cudaMalloc((void **)&d_stacked_spectrum, nfft * sizeof(cufftComplex)));
+        CUDACHECK(cudaMalloc((void **)&d_st_stacked_spectrum, num_freq_bins * nfft * sizeof(cufftComplex)));
+
+        // ========== 2.2 创建 FFT 计划 ============
+        // 用到 3 个 plan: fftPlanFwd_singleTrace, fftPlanInv_multiFreq, fftPlanInv_singleTrace, planinv_tfpws
+        cufftHandle fftPlanFwd_singleTrace, fftPlanInv_multiFreq, fftPlanInv_singleTrace;
+
+        int rank_hilb = 1;
+        int n_hilb[1] = {(int)nfft};
+        int inembed_hilb[1] = {(int)nfft};
+        int onembed_hilb[1] = {(int)nfft};
+        int istride_hilb = 1;
+        int idist_hilb = (int)nfft;
+        int ostride_hilb = 1;
+        int odist_hilb = (int)nfft;
+
+        // ① 叠后数据 R2C
+        CUFFTCHECK(cufftPlanMany(&fftPlanFwd_singleTrace,
+                                 rank_hilb, n_hilb,
+                                 inembed_hilb, istride_hilb, idist_hilb,
+                                 onembed_hilb, ostride_hilb, odist_hilb,
+                                 CUFFT_R2C, 1));
+
+        // ② 多频带 IFFT
+        CUFFTCHECK(cufftPlanMany(&fftPlanInv_multiFreq,
+                                 rank_hilb, n_hilb,
+                                 inembed_hilb, istride_hilb, idist_hilb,
+                                 onembed_hilb, ostride_hilb, odist_hilb,
+                                 CUFFT_C2C, (int)num_freq_bins));
+
+        // ③ 单条 IFFT（最后一步）
+        CUFFTCHECK(cufftPlanMany(&fftPlanInv_singleTrace,
+                                 rank_hilb, n_hilb,
+                                 inembed_hilb, istride_hilb, idist_hilb,
+                                 onembed_hilb, ostride_hilb, odist_hilb,
+                                 CUFFT_C2C, 1));
+
+        // ========== 2.3 对[叠后数据]做 Stockwell 变换(相当于S变换) ============
+        // (A) R2C => 叠后频谱
+        CUFFTCHECK(cufftExecR2C(fftPlanFwd_singleTrace, (cufftReal *)d_linear_stack, (cufftComplex *)d_stacked_spectrum));
+
+        // (B) hilbertTransformKernel => 得到解析信号频谱 (后半部分为0)
+        DimCompute2D(&dimGrid_2D, &dimBlock_2D, nfft, 1);
+        hilbertTransformKernel<<<dimGrid_2D, dimBlock_2D>>>(d_stacked_spectrum, nfft, 1);
+        CUDACHECK(cudaDeviceSynchronize());
+
+        // (C) gaussianModulate => 得到叠后数据的[频率调制]  (1道 => batch=1)
+        DimCompute3D(&dimGrid_3D, &dimBlock_3D, nfft, num_freq_bins, 1);
+        gaussianModulateSub<<<dimGrid_3D, dimBlock_3D>>>(
+            /* d_inputSpectrum       */ d_stacked_spectrum,
+            /* d_modulatedSubChunk   */ d_st_stacked_spectrum,
+            /* nTraces               */ 1,
+            /* freqDomainLen         */ nfft,
+            /* chunkStartFreq        */ 0,
+            /* chunkFreqCount        */ (int)num_freq_bins,
+            /* scale                 */ scale);
+        CUDACHECK(cudaDeviceSynchronize());
+
+        // (D) C2C 逆变换 => 中心频率-中心时间 域
+        CUFFTCHECK(cufftExecC2C(fftPlanInv_multiFreq, d_st_stacked_spectrum, d_st_stacked_spectrum, CUFFT_INVERSE));
+        CUDACHECK(cudaDeviceSynchronize());
+
+        // 销毁 fwd 和 inv_trace 这两个用完的 plan
+        cufftDestroy(fftPlanFwd_singleTrace);
+        cufftDestroy(fftPlanInv_multiFreq);
+
+        // ========== 2.4 对多道数据一次性计算权重 =============
+        // (A) 我们先分配一个“子频段调制”临时数组 d_st_subbatch
+        //     大小： [num_trace, freq_batch_size, nfft]
+        cufftComplex *d_st_subbatch;
+        CUDACHECK(cudaMalloc((void **)&d_st_subbatch, (size_t)num_trace * freq_batch_size * nfft * sizeof(cufftComplex)));
+        CUDACHECK(cudaDeviceSynchronize());
+        // (B) 还需要一个子批次 FFT 计划 => batch = num_trace*freq_batch_size
+        cufftHandle fftPlanInv_subMultiTrace;
+        CUFFTCHECK(cufftPlanMany(&fftPlanInv_subMultiTrace,
+                                 rank_hilb, n_hilb,
+                                 inembed_hilb, istride_hilb, idist_hilb,
+                                 onembed_hilb, ostride_hilb, odist_hilb,
+                                 CUFFT_C2C, (int)(num_trace * freq_batch_size)));
+        CUDACHECK(cudaDeviceSynchronize());
+        // (D) 频率分块循环
+        for (int ichunk = 0; ichunk < num_freq_batches; ichunk++)
+        {
+            int f_start = ichunk * freq_batch_size;
+            int sub_nfreq = ((f_start + freq_batch_size) <= (int)num_freq_bins)
+                                ? freq_batch_size
+                                : ((int)num_freq_bins - f_start);
+
+            // (D1) 调用 "gaussianModulateSub<<<>>>", 仅对 [f_start..f_start+sub_nfreq) 做高斯窗调制
+            //      将 d_spectrum_temp => d_st_subbatch
+            //      大小: [num_trace, sub_nfreq, nfft]
+            dim3 gridG, blockG;
+            DimCompute3D(&gridG, &blockG, nfft, sub_nfreq, num_trace);
+            gaussianModulateSub<<<gridG, blockG>>>(
+                /* d_inputSpectrum       */ d_spectrum,
+                /* d_modulatedSubChunk   */ d_st_subbatch,
+                /* nTraces               */ num_trace,
+                /* freqDomainLen         */ nfft,
+                /* chunkStartFreq        */ f_start,
+                /* chunkFreqCount        */ sub_nfreq,
+                /* scale                 */ scale);
+
+            // (D2) 对这块做 IFFT => fftPlanInv_subMultiTrace
+            cufftExecC2C(fftPlanInv_subMultiTrace, d_st_subbatch, d_st_subbatch, CUFFT_INVERSE);
+            CUDACHECK(cudaDeviceSynchronize());
+            // (D3) 计算权重 => 只对子频段 [f_start..f_start+sub_nfreq) 做相位一致性统计
+            //      累加到全局 d_tfpws_weight
+            dim3 gridW, blockW;
+            DimCompute2D(&gridW, &blockW, nfft, sub_nfreq);
+            calculateWeightSub<<<gridW, blockW>>>(
+                d_st_subbatch,  // [num_trace, sub_nfreq, nfft]
+                d_tfpws_weight, // [num_freq_bins, nfft]
+                nfft,
+                num_trace,
+                f_start,
+                sub_nfreq);
+        }
+        CUDACHECK(cudaDeviceSynchronize());
+
+        // ========== 2.5 应用权重到叠后数据 (d_st_stacked_spectrum ==========
+
+        // (A) Kernel applyWeight: 大小 = [num_freq_bins, nfft]
+        //     叠后数据只有1道 => d_st_stacked_spectrum的 shape ~ [num_freq_bins, nfft]
+        DimCompute2D(&dimGrid_2D, &dimBlock_2D, nfft, num_freq_bins);
+
+        // 对 [num_freq_bins, nfft] 的叠后数据乘以 d_tfpws_weight
+        applyWeight<<<dimGrid_2D, dimBlock_2D>>>(
+            d_st_stacked_spectrum, // [num_freq_bins, nfft]
+            d_tfpws_weight,        // [num_freq_bins, nfft]
+            num_freq_bins,
+            nfft,
+            weight_order);
+        CUDACHECK(cudaDeviceSynchronize());
+        // (B) 将加权后的叠后数据在“时间方向”叠加 => [num_freq_bins]
+        //     即把 [num_freq_bins, nfft] 上每个 time slice 累加 => [num_freq_bins]
+        CUDACHECK(cudaMemset(d_stacked_spectrum, 0, nfft * sizeof(cufftComplex)));
+        // DimCompute1D(&dimGrid_1D, &dimBlock_1D, nfft);
+        // 加和前一半的频率，只有前一半的频率有意义
+        DimCompute1D(&dimGrid_1D, &dimBlock_1D, num_freq_bins);
+        sumOverTimeAxisKernel<<<dimGrid_1D, dimBlock_1D>>>(
+            d_st_stacked_spectrum, // d_tfAnalysis, shape=[num_freq_bins, nfft]
+            d_stacked_spectrum,    // d_outSpectrum, shape=[nfft]
+            num_freq_bins,
+            nfft);
+        CUDACHECK(cudaDeviceSynchronize());
+        // (C) 逆变换 => 得到时域 TF-PWS 结果 (复数)
+        CUFFTCHECK(cufftExecC2C(fftPlanInv_singleTrace, d_stacked_spectrum, d_tfpw_stack_complex, CUFFT_INVERSE));
+        cufftDestroy(fftPlanInv_singleTrace);
+        CUDACHECK(cudaDeviceSynchronize());
+        // (D) 提取实部 => d_tfpw_stack
+        DimCompute1D(&dimGrid_1D, &dimBlock_1D, nfft);
+        extractReal<<<dimGrid_1D, dimBlock_1D>>>(d_tfpw_stack,
+                                                 d_tfpw_stack_complex,
+                                                 nfft);
+        // (E) 销毁临时数组
+        GpuFree((void **)&d_stacked_spectrum);
+        GpuFree((void **)&d_st_stacked_spectrum);
+        GpuFree((void **)&d_tfpw_stack_complex);
+        GpuFree((void **)&d_tfpws_weight);
+
+        // ========== 2.6 写结果到 SAC =============
+        float *tfpw_stack = (float *)malloc(nfft * sizeof(float));
+        CUDACHECK(cudaMemcpy(tfpw_stack, d_tfpw_stack,
+                             nfft * sizeof(float), cudaMemcpyDeviceToHost));
+        snprintf(ccf_dir, sizeof(ccf_dir), "%s/tfpws/%s-%s/", ncf_dir, src_station, sta_station);
+        CreateDir(ccf_dir);
+        snprintf(ccf_path, 2 * MAXLINE, "%s/%s", ccf_dir, ccf_name);
+        CreateDir(ccf_dir);
+        write_sac(ccf_path, ncf_hd, tfpw_stack);
+
+        free(tfpw_stack);
+        GpuFree((void **)&d_tfpw_stack);
+    }
+
     // 销毁输出数组
     GpuFree((void **)&d_linear_stack);
-    GpuFree((void **)&d_pw_stack);
-    GpuFree((void **)&d_tfpw_stack);
     GpuFree((void **)&d_ncf_buffer_all);
     return 0;
 }

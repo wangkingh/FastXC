@@ -27,6 +27,7 @@ LDFLAGS = -L/usr/local/cuda/lib64 -lcufft -lcudart -lm \
 # 源文件
 CUDAOBJS = cuda.stransform.o \
            cuda.pws_util.o \
+           cuda.estimate_batch.o\
            cuda.xc_dual.o \
            cuda.util.o \
            cuda.main.o
