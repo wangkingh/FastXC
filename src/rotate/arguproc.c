@@ -25,8 +25,8 @@ char *my_strdup(const char *s)
 void Argumentprocess(int argc, char **argv, ARGUTYPE *parg)
 {
     int opt;
-    char *inputFile;
-    char *outputFile;
+    char *inputFile = NULL;
+    char *outputFile = NULL;
 
     if (argc <= 1)
     {

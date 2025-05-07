@@ -1,3 +1,65 @@
+# Changelog (2025-05-07)  (fastxc build-system & source clean-up)
+--------------------------------------------------
+
+**Top-level `Makefile`**
+
+* Added release/debug **build modes** and `MODE=par|seq` switch  
+  – `all` → parallel Release (default) `debug` → parallel Debug  
+  – `MODE=seq` forces directory-by-directory serial build.
+
+* Introduced `PARFLAG`, `OSYNC` auto-detect (GNU make ≥ 4) and
+  colourful **banner output** to keep logs readable under `-j`.
+
+* Exported `CC NVCC ARCH CFLAGS NVCCFLAGS` and removed duplicated
+  recursive rules / `--no-print-directory`.
+
+* Added `help`, `clean`, `veryclean` targets with consistent echo.
+
+**Sub-directory `Makefile`s**
+
+* Switched to **`MAKELEVEL`-based auto Debug**:  
+  `MAKELEVEL==0` → `-O0 -g -G`; otherwise `-O3` Release.
+
+* Replaced `?=` with plain `=` (or `override`) where Debug flags
+  must override top-level settings.
+
+* Fixed variable typos (`CFLAG` → `CFLAGS`) and duplicate blocks.
+
+* Unified CUDA flags to use `--generate-line-info` in Release.
+
+**Code fixes eliminating all compiler warnings**
+
+* `arguproc.c`  
+  – initialised `inputFile/outputFile` to `NULL`;  
+  – added option-parsing guard + `fopen` failure check.
+
+* `gen_ncf_path.c` & `gen_ccfpath.c`  
+  – initialised `saveptr = NULL`;  
+  – changed all `strncpy(...,255)` → `MAXNAME-1` with explicit
+    NUL-termination;  
+  – replaced `snprintf(...,8192,…)` by `sizeof(buf)` or enlarged
+    local buffers to 1024;  
+  – for dynamic buffers used `2*MAXLINE` consistently.
+
+* `read_segspec.c` – removed unused vars `strm/hd/size`.
+
+* `cuda.main.cu` – enlarged `outfile/logbuf` and switched to
+  `snprintf(buf,sizeof buf,…)` (two occurrences).
+
+* `gen_ccfpath.c` additional fix: second `snprintf` now passes the
+  *caller-allocated* length (`2*MAXLINE`) instead of `sizeof(ptr)`.
+
+* All `CreateDir`/path helpers now use `snprintf(sizeof buf,…)`
+  and 1024-byte local arrays.
+
+Result
+------
+
+`make` (parallel), `make MODE=seq` (serial), `make debug`, and
+directory-level `make` all build **warning-free** with GCC ≥ 7 and
+NVCC 12 on both Linux and WSL environments.
+
+
 # Changelog (2025-03-26)
 
 1. **fix**: Corrected the cudaMemset call to remove the redundant sizeof(cuComplex) multiplier. in src/xc_dual/cuda.main.cu

@@ -50,13 +50,23 @@ pip install obspy pandas scipy matplotlib tqdm numpy
 ### 编译
 整个程序的代码分为两部分。较“高级”的Python部分用于分配计算任务、设计滤波器、生成终端可执行命令的部分，大规模的基本使用`C`和`CUDA-C`完成。对于使用`C`或`CUDA-C`完成的那部分代码，我们需要在运行程序之前将他们编译为可执行文件。根据下面的方法进行编译：
 ```bash
+# 进入项目根目录
 cd FastXC
+
+# 可选：彻底清理旧对象文件与可执行文件
 make veryclean
-make
+
+# Release 并行编译（默认使用全部 CPU 核心）
+make          # 或 make -j
+
+# 其他模式
+# 串行输出、更易阅读：  make MODE=seq
+# 全调试 (-O0 -g -G)：  make debug
+
 ```
-如果不是高级计算卡（比如A100），还要麻烦您修改`FastXC/Makefile`文件的`第三行`：
+如果不是高级计算卡（比如A100），还要麻烦您修改`FastXC/Makefile`文件的`第12行`：
 ```makefile
-export ARCH=SM_89
+ARCH=SM_89
 ```
 这里涉及到了计算设备（GPU）的计算能力，您可以自行google设备的计算能力。我也在`FastXC/utils`下准备了一个脚本，编译和运行程序`check_gpu`：
 ```bash

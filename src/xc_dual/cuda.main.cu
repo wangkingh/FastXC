@@ -414,10 +414,10 @@ int main(int argc, char **argv)
     char ccf_name[MAXNAME];
     char ccf_name_segment[MAXNAME];
 
-    snprintf(ccf_name, MAXLINE, "%s-%s.%s-%s.ncf.sac",
+    snprintf(ccf_name, sizeof(ccf_name), "%s-%s.%s-%s.ncf.sac",
              src_station, sta_station, src_channel, sta_channel);
 
-    snprintf(ccf_name_segment, MAXLINE, "%s-%s.%s-%s.sac_segment",
+    snprintf(ccf_name_segment, sizeof(ccf_name_segment), "%s-%s.%s-%s.sac_segment",
              src_station, sta_station, src_channel, sta_channel);
 
     // char ccf_name[MAXNAME];

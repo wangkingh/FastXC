@@ -111,16 +111,16 @@ size_t EstimateGpuBatch(size_t gpu_id, int nseg, int num_ch)
         reqram = batch * unitgpuram;
         // cuFFT memory usage for data fft forward
         cufftEstimateMany(rank, n, inembed, istride, idist, onembed, ostride,
-                          odist, CUFFT_R2C, batch, &tmpram);
+                          odist, CUFFT_R2C, num_ch * batch, &tmpram);
         reqram += tmpram;
         // cuFFT memory usage for data fft inverse
         cufftEstimateMany(rank, n, inembed, istride, idist, onembed, ostride,
-                          odist, CUFFT_C2R, batch, &tmpram);
+                          odist, CUFFT_C2R, num_ch * batch, &tmpram);
         reqram += tmpram;
 
         // cuFFT memory usage for zero padding data fft forward
         cufftEstimateMany(rank_2x, n_2x, inembed_2x, istride_2x, idist_2x, onembed_2x, ostride_2x,
-                          odist_2x, CUFFT_R2C, batch, &tmpram);
+                          odist_2x, CUFFT_R2C, num_ch * batch, &tmpram);
 
         reqram += tmpram;
 

@@ -108,7 +108,7 @@ void SplitFileName(const char *fname, const char *delimiter, char *stastr,
     }
 
     char *fname_copy = my_strdup(fname); // in oder not to change the original fname
-    char *saveptr;
+    char *saveptr = NULL;
 
     char *result = my_strtok(fname_copy, delimiter, &saveptr);
     if (result)
@@ -216,8 +216,10 @@ void GenCCFPath(char *ccf_path, char *src_path, char *sta_path, char *output_dir
     char src_year[5], src_jday[4], src_hm[5];
     char sta_year[5], sta_jday[4], sta_hm[5];
 
-    strncpy(src_file_name, basename(src_path), MAXNAME);
-    strncpy(sta_file_name, basename(sta_path), MAXNAME);
+    strncpy(src_file_name, basename(src_path), MAXNAME-1);
+    strncpy(sta_file_name, basename(sta_path), MAXNAME-1);
+    src_file_name[MAXNAME - 1] = '\0'; 
+    sta_file_name[MAXNAME - 1] = '\0';
 
     // Split file names into individual components
     SplitFileName(src_file_name, ".", src_station, src_year, src_jday, src_hm, src_channel);
@@ -229,7 +231,7 @@ void GenCCFPath(char *ccf_path, char *src_path, char *sta_path, char *output_dir
     snprintf(ccf_dir, sizeof(ccf_dir), "%s/%s.%s.%s/", output_dir, src_year, src_jday, src_hm);
 
     // Generate new CCF file name based on time cross flag
-    snprintf(ccf_name, MAXLINE, "%s-%s.%s-%s.sac", src_station, sta_station, src_channel, sta_channel);
+    snprintf(ccf_name, sizeof(ccf_name), "%s-%s.%s-%s.sac", src_station, sta_station, src_channel, sta_channel);
 
     CreateDir(ccf_dir);
     snprintf(ccf_path, 2 * MAXLINE, "%s/%s", ccf_dir, ccf_name);
@@ -248,8 +250,10 @@ char *GetNcfPath(char *src_path, char *sta_path, char *output_dir)
     char src_year[5], src_jday[4], src_hm[5];
     char sta_year[5], sta_jday[4], sta_hm[5];
 
-    strncpy(src_file_name, basename(src_path), MAXNAME);
-    strncpy(sta_file_name, basename(sta_path), MAXNAME);
+    strncpy(src_file_name, basename(src_path), MAXNAME-1);
+    strncpy(sta_file_name, basename(sta_path), MAXNAME-1);
+    src_file_name[MAXNAME - 1] = '\0';
+    sta_file_name[MAXNAME - 1] = '\0';
 
     // Split file names into individual components
     SplitFileName(src_file_name, ".", src_station, src_year, src_jday, src_hm, src_channel);
@@ -275,8 +279,10 @@ char *GetEachNcfPath(char *src_path, char *sta_path, char *output_dir)
     char src_year[5], src_jday[4], src_hm[5];
     char sta_year[5], sta_jday[4], sta_hm[5];
 
-    strncpy(src_file_name, basename(src_path), MAXNAME);
-    strncpy(sta_file_name, basename(sta_path), MAXNAME);
+    strncpy(src_file_name, basename(src_path), MAXNAME-1);
+    strncpy(sta_file_name, basename(sta_path), MAXNAME-1);
+    src_file_name[MAXNAME - 1] = '\0';
+    sta_file_name[MAXNAME - 1] = '\0';
 
     // Split file names into individual components
     SplitFileName(src_file_name, ".", src_station, src_year, src_jday, src_hm, src_channel);

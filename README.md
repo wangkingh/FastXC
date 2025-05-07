@@ -61,15 +61,23 @@ while the large-scale fundamental operations are implemented mostly in `C` and `
 For the `C` and `CUDA-C` portion, we need to compile them into executables before running the program.
 To compile, follow the steps below:
 ```bash
+# 1. go to project root
 cd FastXC
-make veryclean
-make
+
+# 2. optional: start from a clean slate
+make veryclean      # wipes all *.o and previous executables
+
+# 3. build every executable (parallel Release build, default)
+make                # or: make -j     # use all CPU cores
+
+#   – for a serial, easy-to-read build log:  make MODE=seq
+#   – for a full debug build (-O0 -g -G):    make debug
 ```
 
-If you’re not using a high-end computing card (such as A100), you’ll need to modify the `third line` 
+If you’re not using a high-end computing card (such as A100), you’ll need to modify the `12th line` 
 of the `FastXC/Makefile` file:
 ```makefile
-export ARCH=SM_89
+ARCH=SM_89
 ```
  
 This involves the GPU’s compute capability. You can Google your device’s compute capability. 

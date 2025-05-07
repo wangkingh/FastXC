@@ -1,55 +1,73 @@
-# Compiler
-# CC=gcc
-# NVCC=/usr/local/cuda/bin/nvcc
+# ----------------------------------------------------
+#  sac2spec_super ‒ 子目录 Makefile
+#  • 顶层递归调用 → Release (-O3, --generate-line-info)
+#  • 手动进入目录 make → Debug (-O0 -g -G -lineinfo)
+# ----------------------------------------------------
 
-# cuda architecture
-# ARCH = sm_89
+# 编译器
+CC        ?= gcc
+NVCC      ?= /usr/local/cuda/bin/nvcc
+ARCH      ?= sm_89
+WARN      ?= -Wall
 
-# compiler flags
-CFLAGS=-Wall -O0 -g
-NVCCFLAGS = -g -G -arch=$(ARCH)
-# NVCCFLAGS = -g -G -arch=$(ARCH)
+# ---------- 优化级别自动切换 ----------
+ifeq ($(MAKELEVEL),0)              # 手动调试
+    CFLAGS     ?= -O0 -g $(WARN)
+    NVCCFLAGS  ?= -g -G -lineinfo -arch=$(ARCH)
+else                                # 顶层批量构建
+    CFLAGS     ?= -O3 $(WARN)
+    NVCCFLAGS  ?= -O3 --generate-line-info -arch=$(ARCH)
+endif
+# -------------------------------------
 
+# 链接库
+LFLAG = -L/usr/local/cuda/lib64 -lcufft -lcudart -lm
 
-# linker flags
-LFLAG=-L/usr/local/cuda/lib64  -lcufft -lcudart -lm
+# 源文件
+CUDAOBJS = cuda.rdcrtr.o \
+           cuda.util.o  \
+           cuda.misc.o  \
+           cuda.processing.o \
+           cuda.taper.o \
+           cuda.main.o
 
-CUDAOBJS=cuda.rdcrtr.o \
-	cuda.util.o \
-	cuda.misc.o \
-	cuda.processing.o \
-	cuda.taper.o \
-	cuda.main.o \
+OBJS = design_filter_response.o \
+       arguproc.o \
+       cal_nseg.o \
+       par_rw_data.o \
+       read_filelist.o \
+       sacio.o \
+       util.o
 
-OBJS=design_filter_response.o \
-	arguproc.o \
-	cal_nseg.o \
-	par_rw_data.o \
-	read_filelist.o \
-	sacio.o \
-	util.o \
-	
-BINDIR=../../bin
-PROG=$(BINDIR)/sac2spec_super
+# 输出可执行文件
+BINDIR := ../../bin
+PROG   := $(BINDIR)/sac2spec_super
 
+# 伪目标
+.PHONY: all clean veryclean
+
+# 默认目标
 all: $(BINDIR) $(PROG)
 
+# 创建输出目录
 $(BINDIR):
-	mkdir -p $(BINDIR)
+	@mkdir -p $@
 
-$(PROG):$(OBJS) $(CUDAOBJS)
+# 链接
+$(PROG): $(OBJS) $(CUDAOBJS)
 	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LFLAG)
 
+# C 文件编译
 %.o: %.c
-	$(CC) $(CFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $< -o $@
 
-%.o: %.cu 
-	$(NVCC) $(NVCCFLAGS) -c $<
+# CUDA 文件编译
+%.o: %.cu
+	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
-.PHONY: clean veryclean
-
+# 清理
 clean:
-	-rm *.o
+	@rm -f *.o
 
-veryclean:
-	-rm $(PROG) *.o 
+veryclean: clean
+	@rm -f $(PROG)

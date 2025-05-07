@@ -70,9 +70,6 @@ int read_spec_buffer(const char *file_path, complex *buffer, size_t vec_size)
 void *read_in_segspec(void *arg)
 {
     thread_info_read *tinfo = (thread_info_read *)arg;
-    FILE *strm = NULL;
-    SEGSPEC *hd = malloc(sizeof(SEGSPEC));
-    int size;
 
     for (size_t i = tinfo->start; i < tinfo->end; i++)
     {
