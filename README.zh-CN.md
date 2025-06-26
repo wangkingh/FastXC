@@ -6,6 +6,9 @@
 **切换语言** **Switch Language**: [English](README.md)[英语], [简体中文](README.zh-CN.md)[Simplified Chinese]
 
 可以点击项目Issue查看一些目前存在的bug，我正在加班加点改进！！！
+## 重要注意事项
+- 使用之前一定要要 配置好 cuda toolkit，要检查有没有cufft!!!!!
+- 还有注意查看自己的英伟达GPU的计算能力（Capability）并对Makefile进行修改！！
 
 ## 目录
 - [项目介绍](#项目介绍)
