@@ -224,6 +224,23 @@ class TestPathPlanner(unittest.TestCase):
         self.assertEqual(len(inter.paths), 2)
         self.assertEqual(len(all_pairs.paths), 3)
 
+    def test_autocorr_mode_controls_self_pairs(self):
+        files_group = {
+            ("STA01", self.timestamp): self._station_info("STA01", 0.0, 0.0),
+            ("STA02", self.timestamp): self._station_info("STA02", 0.0, 0.1),
+        }
+
+        off = build_path_plan(files_group, autocorr_mode="off")
+        include = build_path_plan(files_group, autocorr_mode="include")
+        only = build_path_plan(files_group, autocorr_mode="only")
+
+        self.assertEqual([path.path_id_text for path in off.paths], ["00010002"])
+        self.assertEqual(
+            [path.path_id_text for path in include.paths],
+            ["00010001", "00010002", "00020002"],
+        )
+        self.assertEqual([path.path_id_text for path in only.paths], ["00010001", "00020002"])
+
     def _station_info(self, station: str, lat: float, lon: float, network: str = "XX"):
         paths = []
         for component in ("E", "N", "Z"):

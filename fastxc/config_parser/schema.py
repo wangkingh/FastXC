@@ -69,6 +69,18 @@ def _normalize_tfpws_band(value: str | None) -> str:
     return "FULL" if text in {"", "NONE", "OFF", "FULL", "ALL"} else text
 
 
+def _normalize_autocorr_mode(value: str | None) -> str:
+    text = "OFF" if value is None else str(value).strip().upper()
+    text = text.replace("-", "_")
+    if text in {"", "OFF", "NONE", "FALSE", "NO", "0"}:
+        return "off"
+    if text in {"INCLUDE", "ON", "TRUE", "YES", "1"}:
+        return "include"
+    if text in {"ONLY", "AUTO_ONLY", "AUTOCORR_ONLY", "SELF", "SELF_ONLY"}:
+        return "only"
+    return text.lower()
+
+
 def _normalize_optional_path(value: str | None) -> str:
     if value is None:
         return "NONE"
@@ -244,6 +256,7 @@ class Xcorr:
     distance_range:   str = "-1/50000"
     azimuth_range:    str = "-1/360"
     group_pair_mode:  str = "all"         # intra / inter / all
+    autocorr_mode:    str = "off"         # off / include / only
 
     @classmethod
     def from_cfg(cls, g: Mapping[str, str]) -> "Xcorr":
@@ -252,6 +265,7 @@ class Xcorr:
             distance_range   = g.get("distance_range", "-1/50000"),
             azimuth_range    = g.get("azimuth_range", "-1/360"),
             group_pair_mode  = g.get("group_pair_mode", "all").strip().lower(),
+            autocorr_mode    = _normalize_autocorr_mode(g.get("autocorr_mode", "off")),
         )
 
     def validate(self) -> None:
@@ -269,6 +283,8 @@ class Xcorr:
             "cross",
         }:
             raise ValueError("group_pair_mode must be intra, inter, or all")
+        if self.autocorr_mode not in {"off", "include", "only"}:
+            raise ValueError("autocorr_mode must be off, include, or only")
         self._check_range(self.distance_range, "distance_range")
         self._check_range(self.azimuth_range,  "azimuth_range")
 

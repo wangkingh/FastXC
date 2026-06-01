@@ -180,6 +180,7 @@ A7K2	38.499907	-98.603619	0	KS	00
 | `distance_range` | 允许距离范围，格式 `min/max`，单位 km。`-1/50000` 基本等于不限制。 |
 | `azimuth_range` | 允许方位角范围，格式 `min/max`，单位度。 |
 | `group_pair_mode` | 组间规则：`intra` 仅同组，`inter` 仅不同组，`all` 同组和组间都计算。 |
+| `autocorr_mode` | 自相关路径控制：`off` 关闭自相关，`include` 在普通台站对外加入自相关，`only` 只保留自相关。 |
 | `windows_per_xcache` | 每个 xcache shard 包含的窗口数；`AUTO` 表示按时间片集中写入。 |
 | `xcache_async_after_sac2spec` | SAC2SPEC 每完成一个时间片就异步构建 xcache。 |
 | `async_poll_sec` | 所有异步任务的轮询间隔，单位秒；包括 xcache、spack 清理和 SourcePack。 |
