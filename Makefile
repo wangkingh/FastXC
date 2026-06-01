@@ -1,87 +1,53 @@
-# ----------------------------------------------------
-#  fastxc  —  顶层 Makefile
-#  • make            → Release 并行（默认）
-#  • make MODE=seq   → Release 串行
-#  • make debug      → Debug  并行
-#  • make debug MODE=seq → Debug  串行
-# ----------------------------------------------------
+# Unified developer build entry for FastXC.
+#
+# Typical WSL/Linux workflow:
+#   make install        # build native backends, stage them into the Python package, install fastxc
+#   make doctor-source  # run doctor directly from the source tree
 
-# ---------- 编译器 ----------
-CC        ?= gcc
-NVCC      ?= /usr/local/cuda/bin/nvcc
-ARCH      ?= sm_89
+PYTHON ?= python
+PIP ?= $(PYTHON) -m pip
+BUILD ?= release
+MODE ?= par
 
-# ---------- Release / Debug ----------
-CFLAGS        ?= -O3 -Wall
-NVCCFLAGS     ?= -O3 --use_fast_math --generate-line-info -arch=$(ARCH)
+NATIVE_DIR := native
 
-DBG_CFLAGS    := -O0 -g -Wall
-DBG_NVCCFLAGS := -O0 -g -G -lineinfo -arch=$(ARCH)
+.PHONY: all install develop python-dev python-dev-no-deps \
+	native native-full \
+	stage-binaries doctor doctor-source clean-native veryclean-native help
 
-# ---------- 向子 make 继承 ----------
-export CC NVCC ARCH
-export CFLAGS NVCCFLAGS
+all: install ## Build native binaries and install Python console commands
 
-# ---------- 并行 / 串行 开关 ----------
-MODE ?= par            # par (默认) | seq
-ifeq ($(MODE),par)
-  PARFLAG = -j         # 并行
-else
-  PARFLAG =            # 串行
-endif
+install: native stage-binaries python-dev ## Full editable install: fastxc command + all native binaries
 
-# ---------- GNU make ≥4 输出同步 ----------
-ifeq ($(shell expr $(firstword $(subst ., ,$(MAKE_VERSION))) \>= 4),1)
-  OSYNC ?= --output-sync=target
-else
-  OSYNC :=
-endif
+develop: install ## Alias for install
 
-# ---------- 子目录 ----------
-SUBDIRS := \
-    src/sac2spec          src/sac2spec_butter \
-    src/sac2spec_cos      src/sac2spec_super  \
-    src/xc_multi          src/xc_dual         \
-    src/stack             src/rotate          \
-    src/extractSegments
+python-dev: ## Install Python package in editable mode, creating the fastxc command
+	$(PIP) install -e .
 
-.PHONY: all debug clean veryclean recurse $(SUBDIRS) help
+python-dev-no-deps: ## Editable install without dependency resolution
+	$(PIP) install -e . --no-deps
 
-# ---------- 递归规则 ----------
-recurse: $(SUBDIRS)
+native: ## Build all native backends: sac2spec, xc_fast, ncf_pws, ncf_tfpws
+	$(MAKE) -C "$(NATIVE_DIR)" BUILD=$(BUILD) MODE=$(MODE) all
 
-$(SUBDIRS):
-	@echo "========== [ $@ ] =========="
-	$(MAKE) -C $@
+native-full: native ## Alias for native; kept for explicit full-build workflows
 
-# ---------- 默认目标：Release ----------
-all: ## Build Release (MODE=par|seq)
-	@$(info === Building in RELEASE mode, MODE=$(MODE) ===)
-	$(MAKE) $(PARFLAG) $(OSYNC) recurse
+stage-binaries: ## Copy bin native binaries into fastxc/bin/<platform> for packaging
+	$(PYTHON) -m fastxc.devtools.stage_binaries
 
-# ---------- Debug 目标 ----------
-debug: export CFLAGS=$(DBG_CFLAGS)
-debug: export NVCCFLAGS=$(DBG_NVCCFLAGS)
-debug: ## Build Debug (MODE=par|seq)
-	@$(info === Building in DEBUG mode, MODE=$(MODE) ===)
-	$(MAKE) $(PARFLAG) $(OSYNC) recurse
+doctor-source: ## Run doctor from the source tree without requiring installation
+	$(PYTHON) -m fastxc.cli doctor
 
-# ---------- 清理 ----------
-clean:
-	@for dir in $(SUBDIRS); do \
-	  echo ">> Cleaning in $$dir"; \
-	  $(MAKE) -C $$dir clean; \
-	done
+doctor: ## Run doctor through the installed fastxc command
+	fastxc doctor
 
-veryclean:
-	@for dir in $(SUBDIRS); do \
-	  echo ">> Very clean in $$dir"; \
-	  $(MAKE) -C $$dir veryclean; \
-	done
+clean-native: ## Remove native object files and generated test fixtures
+	$(MAKE) -C "$(NATIVE_DIR)" clean
 
-# ---------- 帮助 ----------
+veryclean-native: ## Remove native object files, fixtures, and built native binaries
+	$(MAKE) -C "$(NATIVE_DIR)" veryclean
+
 help: ## Show this help
-	@awk 'BEGIN{FS=":.*##"; printf "\nUsage:  make \033[36m<TARGET>\033[0m [MODE=par|seq]\n\nTargets:\n"} \
-	     /^[a-zA-Z0-9_-]+:[^#]*##/{printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}' \
+	@awk 'BEGIN{FS=":.*##"; printf "\nUsage: make \033[36m<TARGET>\033[0m [BUILD=release|debug] [MODE=par|seq]\n\nTargets:\n"} \
+	     /^[a-zA-Z0-9_-]+:[^#]*##/{printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' \
 	     $(MAKEFILE_LIST)
-

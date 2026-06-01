@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fastxc"
+version = "0.1.0"
+description = "Fast ambient-noise cross-correlation pipeline with CUDA native backends"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [
+  {name = "FastXC contributors"}
+]
+dependencies = [
+  "numpy",
+  "pandas",
+  "scipy",
+  "tqdm",
+]
+
+[project.scripts]
+fastxc = "fastxc.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["fastxc*"]
+
+[tool.setuptools.package-data]
+fastxc = [
+  "resources/template.ini",
+  "resources/segspec.h",
+  "bin/*",
+  "bin/*/*",
+]

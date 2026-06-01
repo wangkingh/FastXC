@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+
+set -u
+
+if ! command -v nvidia-smi >/dev/null 2>&1; then
+  echo "nvidia-smi not found" >&2
+  exit 1
+fi
+
+nvidia-smi --query-gpu=index,name,compute_cap --format=csv,noheader,nounits |
+awk -F, '
+  {
+    index = $1
+    name = $2
+    capability = $3
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", index)
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", capability)
+    if (capability == "") next
+    print "Device Number: " index
+    print " Device  name: " name
+    print " Compute capability:" capability
+  }
+'

@@ -1,9 +1,0 @@
-{
-    "files.associations": {
-        "chrono": "c",
-        "*.cu": "cuda-cpp"
-    }
-    
-}
-
-

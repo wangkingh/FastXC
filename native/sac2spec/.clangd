@@ -1,0 +1,16 @@
+CompileFlags:
+  Add:
+    - -I.
+    - -Iinclude
+    - -I/usr/local/cuda/include
+    - -std=c++14
+---
+If:
+  PathMatch: .*\.(cu|cuh)$
+CompileFlags:
+  Add:
+    - -x
+    - cuda
+    - --cuda-path=/usr/local/cuda
+    - --cuda-gpu-arch=sm_80
+    - -D__CUDACC__

@@ -1,0 +1,78 @@
+# xc_fast backend.
+
+include ../common.mk
+
+CUDA_STD ?= c++14
+INCLUDES := -I. -Iinclude -Iio -Iworker -Imemory -Ikernels -Ipack_io
+
+CFLAGS    ?= $(OPT_CFLAGS) $(WARN) $(INCLUDES) -pthread
+NVCCFLAGS ?= $(OPT_NVCCFLAGS) -std=$(CUDA_STD) $(NVCC_ARCH_FLAGS) $(INCLUDES)
+
+LFLAG = -L$(CUDA_LIBDIR) -lcufft -lcudart -lm -lpthread
+
+CUDAOBJS = \
+    cuda.main.o \
+    cuda.util.o \
+    kernels/cuda.kernels.o \
+    worker/async_workers.o \
+    worker/executor.o \
+    worker/scheduler.o \
+    memory/memory.o \
+    io/input.o \
+    io/sac_record.o \
+    io/writer.o \
+    pack_io/pack_writer.o
+
+OBJS = \
+    arguproc.o \
+    logger.o \
+    io/sacio.o \
+    io/path_table.o \
+    io/my_write_sac.o \
+    io/fs.o \
+    io/sac_header.o
+
+BINDIR := ../../bin
+PROG   := $(BINDIR)/xc_fast
+
+.PHONY: all clean veryclean
+
+all: $(BINDIR) $(PROG)
+
+$(BINDIR):
+	@mkdir -p $@
+
+$(PROG): $(OBJS) $(CUDAOBJS)
+	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LFLAG)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+%.o: %.cu
+	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+
+arguproc.o cuda.main.o memory/memory.o io/input.o: arguproc.h
+arguproc.o cuda.main.o io/writer.o: include/write_mode.h
+cuda.main.o worker/async_workers.o memory/memory.o: memory/memory.hpp
+cuda.main.o worker/async_workers.o worker/executor.o worker/scheduler.o memory/memory.o io/input.o io/sac_record.o io/writer.o: runtime.hpp
+cuda.main.o worker/async_workers.o worker/scheduler.o: worker/scheduler.hpp
+cuda.main.o worker/async_workers.o: worker/async_workers.hpp
+worker/async_workers.o worker/executor.o memory/memory.o kernels/cuda.kernels.o: kernels/cuda.kernels.cuh
+worker/async_workers.o worker/executor.o memory/memory.o cuda.util.o: cuda.util.cuh
+cuda.main.o io/input.o worker/async_workers.o: io/input.hpp
+worker/async_workers.o io/writer.o: io/writer.hpp
+io/sac_record.o io/writer.o: io/sac_record.hpp
+cuda.main.o io/sac_record.o io/writer.o pack_io/pack_writer.o: pack_io/pack_writer.hpp
+pack_io/pack_writer.o io/sac_record.o io/writer.o: io/fs.h
+cuda.main.o io/path_table.o worker/scheduler.o: io/path_table.h
+io/writer.o io/my_write_sac.o: io/my_write_sac.h
+io/writer.o io/fs.o: io/fs.h
+io/sac_record.o io/writer.o io/sac_header.o: io/sac_header.h
+arguproc.o cuda.main.o io/input.o memory/memory.o io/path_table.o io/sacio.o io/my_write_sac.o io/writer.o worker/async_workers.o: include/logger.h
+cuda.main.o io/writer.o: progress_sidecar.hpp
+
+clean:
+	@rm -f *.o io/*.o worker/*.o memory/*.o kernels/*.o pack_io/*.o
+
+veryclean: clean
+	@rm -f $(PROG)

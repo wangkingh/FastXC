@@ -1,0 +1,43 @@
+# Lightweight helper for putting FastXC on remote/static-distributed nodes.
+#
+# This file intentionally stays outside the Python runtime. FastXC plans and
+# runs jobs against already-available executables; this Makefile is only a
+# convenience for syncing/building/checking those executables.
+
+NODE ?= localhost
+REMOTE_DIR ?= /scratch/$(USER)/FastXC_v2605
+CUDA_ARCH ?= sm_89
+BUILD ?= release
+MODE ?= par
+PYTHON ?= python
+RSYNC ?= rsync
+
+.PHONY: sync-node build-node check-node deploy-node deploy-all help
+
+sync-node: ## Sync this source tree to NODE:REMOTE_DIR
+	$(RSYNC) -a --delete \
+		--exclude .git \
+		--exclude __pycache__ \
+		--exclude '*.pyc' \
+		--exclude results \
+		--exclude 'debug.py' \
+		./ $(NODE):$(REMOTE_DIR)/
+
+build-node: ## Build native binaries on NODE
+	ssh $(NODE) "cd $(REMOTE_DIR) && make native-full BUILD=$(BUILD) MODE=$(MODE) CUDA_ARCH=$(CUDA_ARCH) && make stage-binaries PYTHON=$(PYTHON)"
+
+check-node: ## Check staged binaries and GPU visibility on NODE
+	ssh $(NODE) "cd $(REMOTE_DIR) && $(PYTHON) -m fastxc.cli doctor && nvidia-smi >/dev/null"
+
+deploy-node: sync-node build-node check-node ## Sync, build, and check one NODE
+
+deploy-all: ## Deploy to a whitespace-separated NODES='gpu01 gpu02 ...' list
+	@test -n "$(NODES)" || (echo "Set NODES='node1 node2 ...'" && exit 2)
+	@for node in $(NODES); do \
+		$(MAKE) -f Makefile.deploy NODE=$$node REMOTE_DIR=$(REMOTE_DIR) CUDA_ARCH=$(CUDA_ARCH) BUILD=$(BUILD) MODE=$(MODE) PYTHON=$(PYTHON) deploy-node || exit $$?; \
+	done
+
+help: ## Show this help
+	@awk 'BEGIN{FS=":.*##"; printf "\nUsage: make -f Makefile.deploy NODE=gpu01 <TARGET>\n\nTargets:\n"} \
+	     /^[a-zA-Z0-9_-]+:[^#]*##/{printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' \
+	     $(MAKEFILE_LIST)

@@ -1,62 +1,88 @@
-# ---------- Python ----------
-__pycache__/
-*.py[cod]
-*.pyo
-*.egg-info/
-.Python
-
-# ---------- C / CUDA ----------
-# 对象文件、静态/动态库、编译依赖
-*.o
-*.obj
-*.a
-*.so
-*.dll
-*.d
-*.dSYM/
-*.exe
-
-# ---------- 可执行产物 ----------
-/bin/
-*.out
-*.run
-*.stackdump
-
-# ---------- 构建系统 ----------
-/build/
-CMakeFiles/
-CMakeCache.txt
-Makefile
-cmake_install.cmake
-
-# ---------- IDE / 编辑器 ----------
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
 .vscode/
 .idea/
 *.swp
-*~
+*.swo
 
-# ---------- 日志 / 临时 ----------
-*.log
-*.tmp
-*.bak
-# 压缩归档
-*.zip
-*.tar.gz
-*.tgz
-
-# ---------- Jupyter ----------
-.ipynb_checkpoints/
-
-# ---------- 依赖镜像 ----------
-.env/
-.venv/
-.envrc
-
-
-# ─── Python 运行产生的缓存 ──────────────────────────────────────────
+# Python build and cache artifacts
 __pycache__/
-*.py[cod]          # .pyc .pyo .pyd
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
 
-# ─── 临时 / 调试日志 ───────────────────────────────────────────────
+# Native build artifacts
+*.o
+*.d
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.pdb
+/bin/
+/fastxc/bin/
+
+# Local FastXC runs, workspaces, and binary products
+/debug.py
+/analysis_tools/
+/testing_results/
+/result/
+/results/
+/plots_*/
+/sourcepack_panel_contact_sheet.png
+/_codex_compare/
+/waste_*/
+/example/workspace*/**
+!/example/workspace*/
+!/example/workspace*/.gitkeep
+
+# Private/local configs kept out of the public repository
+/configs/x2.ini
+/configs/timelist/cluster_6_timestamps.txt
+
+# Root-level workspace directories
+/spack_by_timestamp/
+/xcache/
+/ncf/
+/sourcepack/
+/stack/
+/rotate/
+/log/
+/progress/
+/commands/
+/unpacked/
+
+# Nested workspace directories
+**/workspace/spack_by_timestamp/
+**/workspace/xcache/
+**/workspace/ncf/
+**/workspace/sourcepack/
+**/workspace/stack/
+**/workspace/rotate/
+**/workspace/log/
+**/workspace/progress/
+**/workspace/commands/
+**/workspace/unpacked/
+
+# FastXC binary data products
+*.spack
+*.SEGSPEC
+*.xcspec
+*.xcpack
+*.pack
+*.bigsac
+*.ncf.SAC
+*.linearstack.sac
+*.pws.sac
+*.tfpws.sac
 *.log
-log_test_file.txt
+*.time

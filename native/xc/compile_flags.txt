@@ -1,0 +1,9 @@
+-std=c++14
+-I.
+-Iinclude
+-Iio
+-Iworker
+-Imemory
+-Ikernels
+-Ipack_io
+-I/usr/local/cuda/include

@@ -1,0 +1,1 @@
+"""Packaged FastXC resource files."""

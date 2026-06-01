@@ -1,460 +1,305 @@
-<p align="center">
-  <img src="./utils/GPU_vs_CPU.png" alt="广告图片" width="300">
-</p>
+# FastXC
 
+[English](README.en.md) | [文档](docs/README.md) | [配置说明](docs/CONFIGURATION.md) | [输出说明](docs/OUTPUTS.md) | [更新日志](CHANGELOG.md)
 
-* Switch Language 切换语言: [English](README.md)[英文], [简体中文](README.zh-CN.md)[Simplified Chinese]
+FastXC 是一套面向 SAC 波形数据的环境噪声互相关计算流程，主要服务
+Linux、WSL 和 HPC 场景。Python 层负责配置解析、SAC inventory、路径规划、
+阶段调度和索引格式；CUDA/C 后端负责 SAC2SPEC、互相关、PWS 和 TF-PWS 等重
+计算阶段。
 
-## FastXC
-High Performance Noise Cross-Corelation Computing Code for 9-component Recordings
-* ## Table of Contents
-- [Project Introduction](#project-introduction)
-- [Installation & Requirements](#installation--requirements)
-- [Quick start](#quick-start)
-- [Complete Configuration File Explanation](#complete-configuration-file-explanation)
-- [Computational Environment Check](#computational-environment-check)
-- [FAQ](#faq)
-- [Change Log](#change-log)
-- [Author Contact Information](#author-contact-information)
-- [Acknowledgements](#acknowledgements)
-- [References](#references)
+支持目标是 Linux 或 WSL + NVIDIA CUDA。原生 Windows 构建不支持。
 
-# Important Warning
-BUG of tfpws and pws in this code has been found, those who used a GPU with memory < 20G should take care!!
-# 💡Project Introduction
-High Performance Noise Cross-Corelation Computing Code for 9-component Recordings
+## 获取代码
 
-Using a high-performance CPU-GPU heterogeneous computing framework, this program is designed to efficiently compute single/nine-component noise cross-correlation functions (NCFs) from ambient noise data. It integrates data preprocessing, accelerated cross-correlation computation, and various stacking techniques (Linear, PWS, tf-PWS), particularly optimizing the computing process using CUDA technology. This significantly enhances processing speed and the signal-to-noise ratio of the data, making it especially suitable for handling large-scale noise datasets.
-
-
-### Program Features 🎉🎉
-1. CUDA-accelerated heterogeneous computing
-2. Supports computing both single-component and nine-component cross-correlation functions
-3. Employs regex-based file retrieval for SAC files, generally eliminating the need for users to rename files
-4. Enables cross-correlation calculation between two seismic arrays
-5. Integrates PWS and tf-PWS high-SNR stacking methods (requiring sufficient GPU memory) with CUDA acceleration
-6. Separates business logic from low-level computation, allowing users familiar with CUDA and C to customize preprocessing and cross-correlation steps
-
-## 🔧Installation & Requirements
-### System Requirements
-
-- Requires Linux and a GPU-enabled graphics card, preferably with 8GB or more of GPU memory.
-- If this is your first time running a CUDA program, please check the [Computational Environment](#computational-environment-check) section beforehand.
-
-### Python Version Requirements
-- **Requirement**: Python 3.8 or higher
-
-### Required Third-Party Python Libraries
-- **Necessary Libraries**: `obspy`, `pandas`, `scipy`, `matplotlib`, `tqdm`, `numpy`
-- We only use basic functionalities from these libraries, so we recommend installing their latest versions. If your environment already has these libraries, you can skip updates. To install them, use:
+从 GitHub clone 或解压发布包后，先进入项目根目录：
 
 ```bash
-pip install obspy pandas scipy matplotlib tqdm numpy
-```
-If you are familiar with setting up environments using Anaconda, that would be even better!
-
-
-### Compilation
-The entire program's code is divided into two parts. The more "high-level" part in Python is used for 
-allocating computational tasks, designing filters, and generating terminal executable commands, 
-while the large-scale fundamental operations are implemented mostly in `C` and `CUDA-C`.
-For the `C` and `CUDA-C` portion, we need to compile them into executables before running the program.
-To compile, follow the steps below:
-```bash
-# 1. go to project root
+git clone <repo-url> FastXC
 cd FastXC
 
-# 2. optional: start from a clean slate
-make veryclean      # wipes all *.o and previous executables
-
-# 3. build every executable (parallel Release build, default)
-make                # or: make -j     # use all CPU cores
-
-#   – for a serial, easy-to-read build log:  make MODE=seq
-#   – for a full debug build (-O0 -g -G):    make debug
+# 或者解压发布包
+tar -xf FastXC*.tar.gz
+cd FastXC*
 ```
 
-If you’re not using a high-end computing card (such as A100), you’ll need to modify the `12th line` 
-of the `FastXC/Makefile` file:
-```makefile
-ARCH=SM_89
-```
- 
-This involves the GPU’s compute capability. You can Google your device’s compute capability. 
-I’ve also prepared a script under `FastXC/utils` to compile and run the `check_gpu` program:
+## 环境要求
+
+- Python 3.10 或更新版本。
+- Python 依赖：`numpy`、`pandas`、`scipy`、`tqdm`。
+- NVIDIA CUDA Toolkit 和可用 GPU。
+- GNU Make 以及 C/CUDA 编译工具链。
+- Linux 或 WSL。
+
+CUDA 架构默认自动检测。如果自动检测失败，可以手动指定：
+
 ```bash
-bash compile.sh
-./check_gpu
+make install ARCH=sm_89
 ```
- 
-On my desktop, I’m using an NVIDIA RTX 4090 graphics card. The output after running the program is:
+
+## 安装
+
+下面所有命令都假设当前目录是 FastXC 项目根目录，也就是能看到
+`README.md`、`Makefile`、`fastxc/`、`native/` 和 `example/` 的目录。
+
+安装时在项目根目录执行：
+
 ```bash
-Device Number: 0
- Device  name: NVIDIA GeForce RTX 4090
- Compute capability:8.9
+# 先进入任意 Python >= 3.10 环境。
+make install
+fastxc doctor
 ```
- 
-My device’s compute capability is 8.9, hence the compilation option is `ARCH=sm_89`.
- 
-After the compilation, please check `FastXC/bin`. All the executables generated by the compilation 
-will be stored in this folder. At a minimum, you should see `RotateNCF`, `extractSegments`, 
-`ncfstack`, `sac2spec`, `xc_dual_channel`, and `xc_multi_channel`.
- 
-After compilation, you can try running these executables in the `bin` directory to check their output 
-and confirm that the compilation was successful. For example:
+
+`make install` 会编译所有受支持的原生后端、把可执行文件部署到 Python 包，
+并安装可编辑的 `fastxc` 命令。
+
+如果只想编译原生二进制、不安装 Python 包：
+
 ```bash
-cd FastXC/bin
-./sac2spec
+make native-full      # 编译 sac2spec、xc_fast、ncf_pws、ncf_tfpws
+make stage-binaries   # 把编译好的二进制复制进 fastxc/bin/<platform>
 ```
 
+原生二进制会写入 `bin/`，用于 Python 包分发的 staged binaries 会写入
+`fastxc/bin/<platform>/`。
 
-## 🚀Quick Start
-Under the `FastXC` directory, there are several subfolders and files. The five most important ones are:
+## 两种运行方式
+
+FastXC 支持两种等价的命令风格：
+
 ```bash
-FastXC/src       # CUDA and C source code
-FastXC/bin       # Executables compiled from CUDA-C and C code
-FastXC/fastxc    # Python scripts that call the executables
-FastXC/config/test.ini  # Example configuration file
-FastXC/run.py     # The "main" program
+# 源码树风格：适合还没有安装 fastxc 命令时使用。
+python -m fastxc.cli doctor config.ini
+python -m fastxc.cli prepare config.ini
+python -m fastxc.cli run config.ini
+
+# 包化 CLI 风格：执行 make install 或 pip install -e . 后可用。
+fastxc doctor config.ini
+fastxc prepare config.ini
+fastxc run config.ini
 ```
 
-### Modify the Configuration File
-Use `vim` or another text editor to modify `FastXC/config/test.ini`. For more details on the configuration file, 
-refer to the [Complete Configuration File Explanation](#完整配置文件解析).
+两种方式调用的是同一个 Python 入口。`fastxc ...` 更短；`python -m
+fastxc.cli ...` 更适合直接在源码目录里调试，或者环境还没有完整安装 console
+command 的时候使用。
 
-Change line `5`:
-```ini
-sac_dir = /mnt/c/Uers/admin/Desktop/FastXC/test_data
+## 工作流
+
+FastXC 围绕可复用 inventory 运行：
+
+```bash
+fastxc prepare config.ini
+fastxc run config.ini
 ```
-to the __absolute path__ of the example data in your operating system.
 
-Change line `27`:
-```ini
-output_dir = /mnt/c/Users/admin/Desktop/FastXC/test_output
+`prepare` 会扫描 SAC 文件、分配 NSL ID、生成 SAC index、筛选允许路径，并写
+出 inventory 元数据。`run` 会读取准备好的 inventory，依次执行频谱转换、互
+相关、SourcePack 整理、叠加、旋转和可选导出。
+
+## 快速开始
+
+生成配置文件：
+
+```bash
+fastxc init -o config.ini
 ```
-to the __absolute path__ of the output directory in your operating system.
 
-Change lines `84-88`:
-```ini
-sac2spec = /mnt/c/Users/admin/Desktop/FastXC/bin/sac2spec
-xc_multi = /mnt/c/Users/admin/Desktop/FastXC/bin/xc_multi_channel
-xc_dual = /mnt/c/Users/admin/Desktop/FastXC/bin/xc_dual_channel
-stack = /mnt/c/Users/admin/Desktop/FastXC/bin/ncfstack
-rotate = /mnt/c/Users/admin/Desktop/FastXC/bin/RotateNCF
+修改 `config.ini` 后执行：
+
+```bash
+fastxc doctor config.ini
+fastxc prepare config.ini
+fastxc run config.ini
 ```
-to the absolute paths of these five executables under `FastXC/bin`. This is similar to setting system environment variables.
 
-Change lines `94-96`:
+## 内置示例
+
+仓库包含一套小型匿名三分量 SAC 数据：
+
+```text
+example/
+```
+
+安装完成并确认 `fastxc doctor` 正常后，进入示例目录运行示例：
+
+```bash
+cd example
+fastxc doctor config.ini
+fastxc prepare config.ini
+fastxc run config.ini
+```
+
+示例 workspace 会写入：
+
+```text
+workspace
+```
+
+可选绘图检查不属于标准计算流程，只用于本地查看结果。继续留在 `example/`
+目录中执行。如果当前环境还没有 `matplotlib`，先安装它：
+
+```bash
+python -m pip install matplotlib
+```
+
+然后可以把旋转后的 RTZ 叠加结果画成按距离偏移的 line plot。默认只叠加
+`ZZ`、`ZR`、`RZ` 三个分量，用不同颜色标注，便于查看相位差：
+
+```bash
+python plot_rtz_distance_lines.py \
+  --workspace workspace \
+  --lag-window 20 \
+  --output workspace/plots/rtz_linear_zz_zr_rz_distance_lines.png
+```
+
+该命令只读取 `stack/rtz_*_sourcepack` 下的 RTZ 结果；如果启用了 PWS 或
+TF-PWS，可通过 `--method pws` 或 `--method tfpws` 绘制对应叠加结果。
+
+## 主要配置项
+
+普通用户通常主要修改这些字段：
+
 ```ini
+[seisarray1]
+sac_dir = /path/to/sac/root
+pattern = {home}/{station}/{YYYY}/{station}.{YYYY}.{JJJ}.{*}.{component}.{suffix}
+sta_list = NONE
+component_list = E,N,Z
+
+[time_filter]
+time_start = 2017-09-01 00:00:00
+time_end = 2017-09-30 01:00:00
+time_list = NONE
+
+[preprocess]
+sac_len = 86400
+win_len = 3600
+shift_len = 3600
+delta = 0.1
+normalize = AUTO
+bands = 0.1/2
+whiten = AFTER
+output_phase_only = False
+
+[xcorr]
+max_lag = 100
+distance_range = -1/50000
+azimuth_range = -1/360
+group_pair_mode = all
+
+[device]
 gpu_list = 0
-gpu_task_num = 1
-gpu_mem_info = 24
-```
-to match the configuration of the computing devices you intend to use. You can use `nvidia-smi` to check your GPU info. 
-For example, if you have two GPUs (labeled `0` and `1`), each with 40GB of memory, and you plan to run one task per GPU 
-(this is recommended), then you could write:
-```ini
-gpu_list = 0,1
-gpu_task_num = 1,1
-gpu_mem_info = 40,40
+cpu_workers = 20
+
+[storage]
+workspace_dir = /path/to/output/workspace
+
+[advance.xcache]
+windows_per_xcache = AUTO
+async_after_sac2spec = True
+cleanup_timestamp_spack = True
 ```
 
-If you’re not familiar with GPU information, refer to [Computing Environment](#计算环境).
+其中 `pattern` 描述 `sac_dir` 下 SAC 文件的相对路径。它必须从 `{home}` 开
+始，并至少包含 `{station}`、`{component}` 或 `{channel}`，以及能解析日期的
+字段，例如 `{YYYY}` + `{JJJ}` 或 `{YYYY}` + `{MM}` + `{DD}`。常用通配符：
+`{*}` 匹配任意字符串，`{?}` 匹配一个较短的非路径片段；重复出现的同名字段
+必须取相同值。更完整的字段和 pattern 规则见
+[配置说明](docs/CONFIGURATION.md)。
 
-### Running the Example Data
-After modifying the configuration file, go to the `FastXC` main directory and run:
+## 输出结构
+
+`fastxc prepare` 会在 `workspace_dir` 下写出：
+
+```text
+inventory.meta.json
+manifest/sac_index.tsv
+path_plan/allowed_paths.tsv
+path_plan/nsl_catalog.tsv
+```
+
+`fastxc run` 会继续写出：
+
+```text
+commands/
+filter.txt
+spack_by_timestamp/
+xcache/
+xcache/xcspec_index.tsv
+ncf/
+sourcepack/
+stack/
+stack/rtz_*_sourcepack/
+progress/
+log/
+```
+
+`commands/` 会保留 Python 实际调用的 native 命令，便于审查和复现。
+各阶段产物的用途、是否可清理、以及 SourcePack/stack/rotate 的关系见
+[输出说明](docs/OUTPUTS.md)。
+
+可选工具：
+
 ```bash
-python run.py
+fastxc sac2dat -I /path/to/sac_dir -O /path/to/dat_dir
+fastxc unpack -I /path/to/sourcepack_index.tsv -O /path/to/sac_dir
+fastxc inspect-xcache -I /path/to/xcache
 ```
 
-### Checking the Output Directory
-The output file location is set by the user in the configuration file. In the test example, the output directory is 
-`~/FastXC/test_output`. After the program finishes, several files and directories are created, for example:
+## 文档
+
+更长的项目说明放在 `docs/`：
+
+- [Configuration](docs/CONFIGURATION.md)：INI 字段、路径 pattern 和常见取值。
+- [Architecture](docs/ARCHITECTURE.md)：数据流和模块边界。
+- [Outputs](docs/OUTPUTS.md)：各阶段输出目录和产物用途。
+- [Results](docs/RESULTS.md)：为什么公开仓库不包含大型 benchmark 结果。
+- [Changelog](CHANGELOG.md)：架构调整、兼容性变化和历史决策。
+
+## 项目目录
+
+```text
+fastxc/              Python 包、CLI、配置解析、调度控制
+fastxc/inventory/    SAC inventory、源文件匹配、NSL ID、路径规划
+fastxc/system/       可执行文件发现、日志配置、模板导出
+fastxc/stages/       主流程阶段调度
+fastxc/adapters/     原生可执行程序命令适配
+fastxc/runtime/      原生子进程执行和进度轮询
+fastxc/io/           二进制和索引格式读写
+fastxc/operators/    Python 实现的 xcache、stacking、rotation、filter 算子
+fastxc/resources/    内置配置模板和静态资源
+native/sac2spec/     CUDA SAC2SPEC 后端
+native/xc/           CUDA 互相关后端
+native/pws/          CUDA PWS 后端
+native/tfpws/        CUDA TF-PWS 后端
+configs/             公开 smoke 配置
+example/             内置示例：配置、匿名数据和绘图脚本
+tools/               可选独立工具
+docs/                架构和公开项目说明
+```
+
+## 排错
+
+检查 Python 配置和原生可执行文件发现情况：
+
 ```bash
-test_output/
-├── butterworth_filter.txt   # Records filter parameters, including Butterworth filter poles and zeros
-├── cmd_list                 # A record of commands invoked internally by the program
-├── dat_list.txt             # Data file list (redundant)
-├── sac_spec_list            # List of spectral info for SAC data (used in the sac2spec stage)
-├── segspec                  # Output results from the sac2spec stage
-├── ncf                      # Cross-correlation results for each time segment; not present if calculate_style=DUAL
-├── stack                    # Directory with the stacked cross-correlation results from different time segments
-└── xc_list                  # A record of cross-correlation pair lists
+fastxc doctor config.ini
 ```
 
-Among these files and folders, pay special attention to the following two directories 
-(assuming they appear after the calculation finishes):
+查看原生构建配置：
 
-- ncf: Stores the cross-correlation results for each time segment. This directory contains data results organized 
-   by time window or station array, allowing you to review the segmented cross-correlation information.
-
-- stack: Stores the final cross-correlation results after stacking. This represents the combined outcomes 
-   after linear stacking or applying PWS, tf-PWS stacking methods.
-
-If the `ncf` directory doesn’t appear in your output directory, check your configuration file and computation parameters 
-to ensure the cross-correlation calculation steps completed correctly. Sometimes the program only creates the `ncf` 
-folder and related results at a specific processing stage.
-
-In summary, `ncf` represents segmented processing results, while `stack` represents integrated, stacked results. 
-The files in these two directories are crucial for subsequent data analysis and interpretation.
-
-
-## 📝Complete Configuration File Explanation
-
-### SeisArrayInfo Section
-The [SeisArrayInfo] section is used to specify one or two arrays’ data directories, file path naming formats,
-and the time range for processing. Key parameters include **the location of array data**, **file naming patterns**, 
-and **the time range for processing**. By configuring this section properly, you can flexibly retrieve and match data.
-- __sac_dir_1__ and __sac_dir_2__: Specify the __absolute paths__ to the continuous waveform data for one or two arrays.
-   If you are not computing cross-correlations between two arrays, set `sac_dir_2` to `NONE`.
-
-- __pattern_1__ and __pattern_2__: Define the path patterns for accessing the array data files. The patterns can include:
-     - `{home}`: Represents the root directory of the array data, automatically replaced by the value of `sac_dir_1` or `sac_dir_2`.
-     - `{YYYY}`: Four-digit year (e.g., 2020).
-     - `{YY}`: Two-digit year (e.g., 20 for 2020).
-     - `{MM}`: Two-digit month (01-12).
-     - `{DD}`: Two-digit day (01-31).
-     - `{JJJ}`: Julian Day (001-365/366), representing the nth day of the year.
-     - `{HH}`: Two-digit hour (00-23).
-     - `{MI}`: Two-digit minute (00-59).
-     - `{component}`: Represents the data component, e.g., `Z`, `N`, `E`.
-     - `{suffix}`: File suffix, such as `SAC` or another file extension.
-     - `{*}`: A wildcard that matches any string of arbitrary length.
-
-     - **Notes**:
-       - Each placeholder can appear only once in the file name or path.
-       - Time information must be specified at least to the day, and station/component information is **required**.
-       - Redundant information can be represented by `{*}`.
-       - Supported delimiters are `.` and `_`.
-
-- __start__ and __end__: Specify the time range for retrieving data for cross-correlation calculations, in `YYYY-MM-DD HH:MM:SS` format.
-
-- __sta_list_1__ and __sta_list_2__: Specify the paths (relative to `run.py`) of the station list files for each array. 
-   Each line in these files contains a station name that matches the `station` field in `pattern_1/2`.
-
-- __component_list_1__ and __component_list_2__: Specify the components to be used for cross-correlation, such as `Z`, `N`, `E`.
-   **For nine-component cross-correlation**, the input components must follow the `E, N, Z` order 
-   (though the component names can differ, for example `BH1`).
-
-### Parameters Section
-The `[Parameters]` section controls various settings and algorithm choices during cross-correlation calculations, 
-including frequency bands, time-frequency normalization options, and stacking options.
-
-#### Basic Calculation Settings
-- **output_dir**:  
-  The __absolute path__ where cross-correlation results are saved.
-
-- **win_len** (in seconds):  
-  The time window length for cross-correlation calculations. For example, `win_len=7200` means each calculation segment is 2 hours.
-
-- **delta** (in seconds):  
-  The data sampling interval. Ensure accuracy because it’s critical for filter design and other key steps.
-
-- **max_lag** (in seconds):  
-  The maximum time lag, determining the half-length of the cross-correlation function. 
-  For example, `max_lag=1000` results in a total cross-correlation length of 2000 seconds (±1000 seconds).
-
-- **skip_step**:  
-  Controls skipping behavior for continuous data segments.
-  - `-1` means no segments are skipped.
-  - Can be set like `3/4/-1` to skip certain segments.
-
-- **distance_threshold** (in km):  
-  Only compute cross-correlation for station pairs closer than this threshold.
-
-#### Frequency-Domain and Time-Domain Normalization Settings
-- **whiten**:  
-  Determines when spectral whitening is applied. Options: `BEFORE`, `AFTER`, `BOTH`, `OFF`.
-  - `BEFORE`: Whiten before time-domain normalization, suitable for long-period data (Zhang et al., 2018).
-  - `AFTER`: Whiten after time-domain normalization (Bensen et al., 2007).
-  - `BOTH`: Apply whitening both before and after, a more aggressive choice.
-  - `OFF`: No whitening (for testing purposes).
-
-- **normalize**:  
-  Type of time-domain normalization. Options: `RUN-ABS`, `ONE-BIT`, `RUN-ABS-MF`, `OFF`.
-  - `RUN-ABS`: Running absolute value normalization.
-  - `ONE-BIT`: One-bit normalization.
-  - `RUN-ABS-MF`: Multiband running absolute value normalization.
-  - `OFF`: No normalization (for testing).
-
-  *Note*: In practical applications, a normalization method is typically chosen to improve signal-to-noise ratio.
-
-- **norm_special**:  
-  Choose `CUDA` or `PYV`. Unless there’s a special need, use `CUDA`. `PYV` is mainly for testing CPU-based preprocessing.
-
-- **bands**:  
-  Specifies the frequency bands (in Hz) for spectral whitening/normalization. One or more frequency bands can be given, 
-  e.g. `0.01/0.02 0.02/0.05`. The program uses the min and max frequencies of all bands as the processing corner frequencies.
-
-#### Parallel and Logging Options
-- **parallel** (`True`/`False`):  
-  Whether to enable CPU parallel processing.
-
-- **cpu_count**:  
-  The number of CPU cores (threads) to use for parallel processing. For example, `cpu_count=100` means using 100 cores.
-
-- **debug** (`True`/`False`):  
-  Whether to run in debug mode. Usually set to `False`.
-
-- **log_file_path**:  
-  Path to the log file for recording detailed runtime and debugging information.
-
-#### Output and Saving Controls
-- **save_flag**:  
-  A four-digit `0/1` flag that controls the output types. The bits correspond to `LINEAR`, `PWS`, `TF-PWS`, and `per-segment results`.
-  For example: `save_flag=1001` means save linear stack results and per-segment cross-correlation results.
-
-  *Note*: `save_flag` only takes effect in `calculate_style=DUAL` mode.
-
-- **rotate_dir**:  
-  Specifies the rotation option for nine-component cross-correlation. Choices: `LINEAR`, `PWS`, `TFPWS`. 
-  Determines the final stacking and rotation processing style.
-
-- **todat_flag**:  
-  Similar to `save_flag`, this four-digit switch controls which results are converted to `dat` format (`LINEAR`,`PWS`,`TFPWS`,`RTZ`).  
-  Used similarly to `save_flag`.
-
-  *Note*: `todat_flag` is also affected by `calculate_style`.
-
-- **calculate_style**:
-  Choose `MULTI` or `DUAL`:
-  - `MULTI`: Optimized for I/O performance, supports only linear stacking.
-  - `DUAL`: Saves storage space and supports PWS and TF-PWS stacking. Use `DUAL` if you need PWS or tf-PWS.
-
-### Command Section
-The `[Command]` section specifies the paths to the executables required during the program’s run. 
-By configuring these executable paths, the main script (`run.py`) can automatically call these tools 
-for data preprocessing, cross-correlation calculation, stacking, and rotation, without manual command-line input.
-
-#### Parameter Explanations
-- **sac2spec**:  
-  Points to the `sac2spec` executable, used for converting SAC-format data and computing spectra as a preprocessing step.
-
-- **xc_multi**:  
-  Points to the `xc_multi_channel` executable, used for cross-correlation with multiple stations simultaneously (MULTI mode). 
-  Only linear stacking is supported in this mode.
-
-- **xc_dual**:  
-  Points to the `xc_dual_channel` executable, used for cross-correlating data from two arrays or segments (DUAL mode), 
-  supporting both linear stacking and PWS/TF-PWS stacking. Use this tool when higher SNR stacking methods are required.
-
-- **stack**:  
-  Points to the `ncfstack` executable, used to linearly stack cross-correlation results to improve SNR.
-
-- **rotate**:  
-  Points to the `RotateNCF` executable, used to rotate nine-component cross-correlation results to obtain direction-specific cross-correlation features. 
-  In nine-component calculations, this allows component rotation and output of desired stacked results.
-
-After correctly configuring these executable paths, `run.py` or other main program modules will automatically invoke the corresponding programs at each processing stage.
-
-### GPU Information (gpu_info)
-The `[gpu_info]` section is used to specify GPU computing resources, including available GPU device numbers, 
-the number of tasks per GPU, and GPU memory information. Under the CUDA heterogeneous computing framework, 
-properly allocating GPU resources can greatly improve computational efficiency.
-
-#### Parameter Explanations
-- **gpu_list**:  
-  Specifies the available GPU device numbers, separated by commas.
-  For example:
-  ```ini
-  gpu_list = 0
-  ```
-  Means only GPU #0 is used.
-
-  If multiple GPUs are available:
-  ```ini
-  gpu_list = 0,1
-  ```
-
-- **gpu_task_num**:  
-  Specifies the number of tasks for each GPU in `[gpu_list]`.
-  For example:
-  ```ini
-  gpu_task_num = 1
-  ```
-  Means 1 task is assigned to GPU #0.
-
-  If there are two GPUs (0 and 1), each assigned one task:
-  ```ini
-  gpu_task_num = 1,1
-  ```
-
-- **gpu_mem_info** (in GB):  
-  Specifies the available memory on each GPU for resource optimization.
-  For example:
-  ```ini
-  gpu_mem_info = 24
-  ```
-  Means the GPU has 24GB of memory. If there are two GPUs with 40GB and 24GB respectively:
-  ```ini
-  gpu_mem_info = 40,24
-  ```
-
-#### Summary
-In the `[gpu_info]` section, properly setting GPU IDs, task numbers, and memory information helps efficiently utilize 
-computing resources under CUDA heterogeneous computing. Before configuration, use `nvidia-smi` to check GPU IDs and memory, 
-allowing for informed and targeted settings.
-
-
-## 🔍Computational Environment Check
-
-To run this CUDA program, ensure your system meets the following requirements:
-
-1. **NVIDIA GPU**: Your computer must have an NVIDIA GPU that supports CUDA.
-2. **CUDA Toolkit**: You must install the CUDA Toolkit, which is essential for running CUDA programs. The latest version can be downloaded from the [NVIDIA official website](https://developer.nvidia.com/cuda-downloads).
-3. **GPU Drivers**: Make sure that your NVIDIA GPU drivers are up-to-date to be compatible with the installed version of CUDA.
-
-### Tools Check
-
-Before starting, it is recommended to use the following commands to check if your environment is correctly configured:
-
-- Use the `nvidia-smi` command to check the status of your GPU and drivers.
 ```bash
-nvidia-smi
+make -C native print-config
 ```
-This command will display details about your GPU and the current version of drivers.
+
+迁移到新机器时，优先检查：
+
 ```bash
 nvcc --version
+nvidia-smi
+make -C native print-config
+fastxc doctor config.ini
 ```
-This command helps confirm the CUDA and CUDA compiler (NVCC) version.
-## ❓FAQ
-**Q1:** Does the program support Windows environment?
- 
-**A1:** In principle, the program is mainly optimized for Linux environments. However, you could try running it under Windows via WSL.
- 
-**Q2:** Aside from computing power, what other limitations are there on the performance of the computing device?
- 
-**A2:** A large part of the limitation actually comes from disk performance. Although the computation has been optimized to the limit, if the disk or disk array is underperforming, overall efficiency will still be low. (Of course, it should still be better than a pure CPU setup.)
- 
-**Q3:** Why doesn’t `cal_type=MULTI` support tf-PWS or PWS?
 
-**A3:** A new version will be released in the future to support this. During earlier development, it was assumed that using tf-PWS with MULTI would be slow, but this will be addressed in subsequent revisions.
+## 许可证
 
-## 📒Change Log
-See [Change Log](changelog.md)
-## 📧Author Contact Information
-
-If you have any questions or suggestions or want to contribute to the project, open an [issue](https://github.com/wangkingh/FastXC/issues) or submit a pull request.
-
-For more direct inquiries, you can reach the author at:  
-**Email:** [wkh16@mail.ustc.edu.cn](mailto:wkh16@mail.ustc.edu.cn)
-
-It will be my great pleasure if my code can provide any help for your research!
-
-## 🙏Acknowledgements
-We extend our sincere gratitude to our colleagues from the University of Science and Technology of China, the Institute of Geophysics, China Earthquake Administration, the Institute of Earthquake Forecasting, China Earthquake Administration, and the Institute of Geology and Geophysics, Chinese Academy of Sciences, for their __significant contributions__ during this program's testing and trial runs!
-
-
-ChatGPT generated the title illustration.
-## 📚References
-Wang et al. (2025). ["High-performance CPU-GPU Heterogeneous Computing Method for 9-Component Ambient Noise Cross-correlation."](https://doi.org/10.1016/j.eqrea.2024.100357) Earthquake Research Advances. In Press.
-
-
-Bensen, G. D., et al. (2007). ["Processing seismic ambient noise data to obtain reliable broad-band surface wave dispersion measurements."](https://dx.doi.org/10.1111/j.1365-246x.2007.03374.x) Geophysical Journal International 169(3): 1239-1260.
-
-
-Cupillard, P., et al. (2011). ["The one-bit noise correlation: a theory based on the concepts of coherent and incoherent noise."](https://doi.org/10.1111/j.1365-246X.2010.04923.x) Geophysical Journal International 184(3): 1397-1414.
-
-
-Zhang, Y., et al. (2018). ["3-D Crustal Shear-Wave Velocity Structure of the Taiwan Strait and Fujian, SE China, Revealed by Ambient Noise Tomography." Journal of Geophysical Research: Solid Earth 123(9): 8016-8031.
-	Abstract The Taiwan Strait, along with the southeastern continental margin of the Eurasian plate, Fujian in SE China, is not far from the convergent boundary between the Eurasian plate and the Philippine Sea plate.](https://doi.org/10.1029/2018JB015938)
+FastXC 使用 MIT License。详见 [LICENSE](LICENSE)。
