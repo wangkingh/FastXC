@@ -67,6 +67,7 @@ class PathRecord:
 @dataclass(frozen=True)
 class PairFilterConfig:
     allow_autocorr: bool = True
+    autocorr_only: bool = False
     group_pair_mode: str = "all"
     use_distance_filter: bool = False
     min_distance_km: float = 0.0
@@ -109,6 +110,7 @@ def build_path_plan(
     azimuth_range: str = "-1/360",
     double_array: bool = False,
     allow_autocorr: bool = True,
+    autocorr_mode: str | None = None,
     group_pair_mode: str | None = None,
     external_geo_tsv_path: str | Path | None = None,
 ) -> PathPlan:
@@ -123,6 +125,7 @@ def build_path_plan(
         azimuth_range=azimuth_range,
         double_array=double_array,
         allow_autocorr=allow_autocorr,
+        autocorr_mode=autocorr_mode,
         group_pair_mode=group_pair_mode,
     )
     paths, pair_checks_total = build_valid_paths(nodes, config)
@@ -305,8 +308,12 @@ def build_valid_paths(
     pair_checks_total = 0
 
     for src_index, src in enumerate(nodes):
-        rec_start = src_index if config.allow_autocorr else src_index + 1
-        for rec in nodes[rec_start:]:
+        if config.autocorr_only:
+            candidates = [nodes[src_index]]
+        else:
+            rec_start = src_index if config.allow_autocorr else src_index + 1
+            candidates = nodes[rec_start:]
+        for rec in candidates:
             pair_checks_total += 1
             record = _build_path_record_if_valid(src, rec, config)
             if record is not None:
@@ -496,12 +503,15 @@ def parse_pair_filter_config(
     azimuth_range: str,
     double_array: bool,
     allow_autocorr: bool,
+    autocorr_mode: str | None = None,
     group_pair_mode: str | None = None,
 ) -> PairFilterConfig:
     use_distance, min_distance, max_distance = _parse_distance_range(distance_range)
     use_azimuth, azimuth_ranges = _parse_azimuth_range(azimuth_range)
+    autocorr = _normalize_autocorr_mode(autocorr_mode, allow_autocorr)
     return PairFilterConfig(
-        allow_autocorr=allow_autocorr,
+        allow_autocorr=autocorr != "off",
+        autocorr_only=autocorr == "only",
         group_pair_mode=_normalize_group_pair_mode(group_pair_mode, double_array),
         use_distance_filter=use_distance,
         min_distance_km=min_distance,
@@ -548,6 +558,19 @@ def _normalize_group_pair_mode(mode: str | None, double_array: bool) -> str:
     if value in {"inter", "between", "cross", "cross_group_only"}:
         return "cross_group_only"
     raise ValueError(f"unsupported group_pair_mode: {mode!r}")
+
+
+def _normalize_autocorr_mode(mode: str | None, allow_autocorr: bool) -> str:
+    if mode is None:
+        return "include" if allow_autocorr else "off"
+    value = str(mode).strip().lower().replace("-", "_")
+    if value in {"", "off", "none", "false", "no", "0"}:
+        return "off"
+    if value in {"include", "on", "true", "yes", "1"}:
+        return "include"
+    if value in {"only", "auto_only", "autocorr_only", "self", "self_only"}:
+        return "only"
+    raise ValueError(f"unsupported autocorr_mode: {mode!r}")
 
 
 @dataclass(frozen=True)
@@ -608,9 +631,12 @@ def _build_path_record_if_valid(
     rec: GeoNode,
     config: PairFilterConfig,
 ) -> PathRecord | None:
-    if src.gnsl == rec.gnsl and not config.allow_autocorr:
+    is_autocorr = src.gnsl == rec.gnsl
+    if is_autocorr and not config.allow_autocorr:
         return None
-    if not _passes_group_rule(src.group, rec.group, config.group_pair_mode):
+    if config.autocorr_only and not is_autocorr:
+        return None
+    if not is_autocorr and not _passes_group_rule(src.group, rec.group, config.group_pair_mode):
         return None
 
     distance_km = None

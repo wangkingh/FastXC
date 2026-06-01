@@ -61,6 +61,7 @@ phase_only = True
 distance_range = 10/20
 azimuth_range = 30/40
 group_pair_mode = inter
+autocorr_mode = only
 windows_per_xcache = 12
 xcache_async_after_sac2spec = False
 async_poll_sec = 3
@@ -83,6 +84,7 @@ unpack_target = STACK
         self.assertEqual(cfg.xcorr.distance_range, "10/20")
         self.assertEqual(cfg.xcorr.azimuth_range, "30/40")
         self.assertEqual(cfg.xcorr.group_pair_mode, "inter")
+        self.assertEqual(cfg.xcorr.autocorr_mode, "only")
         self.assertEqual(cfg.stack.stack_flag, "111")
         self.assertEqual(cfg.stack.pre_stack_size, 7)
         self.assertEqual(cfg.xcache.windows_per_xcache, 12)

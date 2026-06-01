@@ -177,6 +177,7 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
             print(f"  xc: {cfg.executables.xc}")
             print(f"  pws: {cfg.executables.pws}")
             print(f"  tfpws: {cfg.executables.tfpws}")
+            print(f"  autocorr_mode: {cfg.xcorr.autocorr_mode}")
             windows = cfg.xcache.windows_per_xcache
             print(f"  windows_per_xcache: {windows if windows is not None else 'AUTO'}")
             print(f"  xcache_async_after_sac2spec: {cfg.xcache.async_after_sac2spec}")

@@ -197,6 +197,7 @@ phase_only = False
 distance_range = -1/50000
 azimuth_range = -1/360
 group_pair_mode = all
+autocorr_mode = off
 windows_per_xcache = AUTO
 xcache_async_after_sac2spec = True
 async_poll_sec = 5
@@ -239,6 +240,8 @@ debug = False
 - `distance_range`：`min/max`，单位 km；`-1/50000` 基本等于不限制。
 - `azimuth_range`：`min/max`，单位度；`-1/360` 基本等于不限制。
 - `group_pair_mode`：`intra` 只算同组，`inter` 只算组间，`all` 全部计算。
+- `autocorr_mode`：自相关路径开关。`off` 关闭自相关，`include` 在普通台站对
+  之外加入自相关，`only` 只保留自相关。
 
 `[geometry].external_geo_tsv` 用于提供外部台站坐标表。`NONE` 表示从 SAC
 header 的 `STLA/STLO/STEL` 读取坐标；当 SAC header 缺少坐标、坐标不可靠，

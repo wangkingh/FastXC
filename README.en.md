@@ -215,6 +215,7 @@ phase_only = False
 distance_range = -1/50000
 azimuth_range = -1/360
 group_pair_mode = all
+autocorr_mode = off
 windows_per_xcache = AUTO
 xcache_async_after_sac2spec = True
 async_poll_sec = 5
@@ -258,6 +259,9 @@ Common field formats:
 - `azimuth_range`: `min/max` in degrees; `-1/360` is effectively unlimited.
 - `group_pair_mode`: `intra` for within-group pairs, `inter` for cross-group
   pairs, or `all` for both.
+- `autocorr_mode`: autocorrelation path control. Use `off` to exclude station
+  self-pairs, `include` to add self-pairs to normal station pairs, or `only`
+  to keep only self-pairs.
 
 `[geometry].external_geo_tsv` points to an optional external station-coordinate
 TSV. `NONE` means coordinates are read from SAC header fields

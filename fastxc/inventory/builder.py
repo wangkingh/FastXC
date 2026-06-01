@@ -59,7 +59,7 @@ def build_inventory(config: Any) -> InventoryResult:
         distance_range=config.xcorr.distance_range,
         azimuth_range=config.xcorr.azimuth_range,
         double_array=config.is_double_array,
-        allow_autocorr=False,
+        autocorr_mode=config.xcorr.autocorr_mode,
         group_pair_mode=config.xcorr.group_pair_mode,
         external_geo_tsv_path=config.geometry.external_geo_tsv,
     )

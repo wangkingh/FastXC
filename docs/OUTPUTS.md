@@ -46,7 +46,8 @@ workspace_dir/
 | `path_plan/allowed_path_ids.txt` | 原生 XC 使用的 path id 白名单。 |
 
 如果 `allowed_paths.tsv` 的行数不符合预期，优先检查 `sta_list`、
-`external_geo_tsv`、`distance_range`、`azimuth_range` 和 `group_pair_mode`。
+`external_geo_tsv`、`distance_range`、`azimuth_range`、`group_pair_mode` 和
+`autocorr_mode`。
 
 ## `run`: SAC2SPEC
 
