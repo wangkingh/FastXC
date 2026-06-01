@@ -113,15 +113,15 @@ stack/rtz_tfpws_sourcepack/STACK/
   _SUCCESS
 ```
 
-Each rotated stack keeps SourcePack shape, so it can still be unpacked only
-when legacy SAC files are needed.
+Each rotated stack keeps SourcePack shape, so it can still be unpacked into
+traditional SAC files for delivery or external tools.
 
 The normal FastXC pipeline can run a final export step after stack and rotation
-when `[unpack].enabled = True`. This is intentionally the last step: it creates
-per-pair SAC files only after the machine-friendly SourcePack workflow has
-finished. Pipeline unpack only exports stack or rotated stack products; raw XC
-SourcePack is left for explicit debugging tools. Exported files use one
-top-level directory per product:
+when `[advance.storage].unpack_enabled = True`. This is intentionally the last
+step: it creates per-pair SAC files only after the machine-friendly SourcePack
+workflow has finished. Pipeline unpack only exports stack or rotated stack
+products; raw XC SourcePack is left for explicit debugging tools. Exported files
+use one top-level directory per product:
 
 ```text
 output_dir/ncf_linear_Z/<src_network>.<src_station>/<rec_network>.<rec_station>/
@@ -147,5 +147,5 @@ The package CLI exposes the same operation:
 fastxc unpack -I workspace/sourcepack -O workspace/ncf_unpacked
 ```
 
-Unpack is intentionally explicit because it materializes pair files and can be
-expensive on large runs.
+Manual unpack is useful for inspection or external delivery outside a full run;
+large exports can still be expensive because they materialize many pair files.

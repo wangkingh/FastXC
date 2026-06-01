@@ -72,7 +72,7 @@ def gen_sac2spec_cmd(
     xcorr_lag_sec: float | None = None,
     gpu_ids: Sequence[int] | None = None,
     gpu_memory_mib: Sequence[float] | None = None,
-    output_phase_only: bool = False,
+    phase_only: bool = False,
     debug_mode: bool = False,
 ) -> list[str]:
     """Build the SAC2SPEC command."""
@@ -94,7 +94,7 @@ def gen_sac2spec_cmd(
     gpu_list = _format_gpu_list(selected_gpu_ids)
     gpu_memory_list = _format_gpu_memory_mib(gpu_memory_mib)
     window_spec = f"{float(sac_len):g}/{float(win_len):g}/{float(shift_len):g}/{lag_sec:g}"
-    whiten_spec = f"{whiten_code}/{'1' if output_phase_only else '0'}"
+    whiten_spec = f"{whiten_code}/{'1' if phase_only else '0'}"
 
     cmd_parts = [
         str(sac2spec_exe),

@@ -19,7 +19,7 @@ class GenerateFilterStage:
             return
         cfg = ctx.cfg
         path = cfg.storage.output_dir / "filter.txt"
-        design_filter(cfg.preprocess.delta, cfg.preprocess.bands, path)
+        design_filter(cfg.compute.delta, cfg.compute.bands, path)
         logger.info("Filter file generated: %s", path)
 
 

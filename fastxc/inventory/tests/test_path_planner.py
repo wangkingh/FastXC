@@ -114,6 +114,57 @@ class TestPathPlanner(unittest.TestCase):
         self.assertAlmostEqual(plan.nodes[1].lat, 0.0)
         self.assertAlmostEqual(plan.nodes[1].lon, 0.1)
 
+    def test_external_geo_tsv_accepts_latitude_longitude_aliases(self):
+        files_group = {
+            ("STA01", self.timestamp): self._station_info("STA01", 0.0, 0.0),
+            ("STA02", self.timestamp): self._station_info("STA02", 30.0, 30.0),
+        }
+        external_geo = self.root / "external_geo_alias.tsv"
+        external_geo.write_text(
+            "station\tlatitude\tlongitude\televation\n"
+            "STA01\t0.0\t0.0\t1.0\n"
+            "STA02\t0.0\t0.1\t2.0\n"
+        )
+
+        plan = build_path_plan(
+            files_group,
+            distance_range="0/20",
+            azimuth_range="-1/360",
+            allow_autocorr=False,
+            external_geo_tsv_path=external_geo,
+        )
+
+        self.assertEqual([path.path_id_text for path in plan.paths], ["00010002"])
+        self.assertAlmostEqual(plan.nodes[1].lat, 0.0)
+        self.assertAlmostEqual(plan.nodes[1].lon, 0.1)
+        self.assertAlmostEqual(plan.nodes[1].ele, 2.0)
+
+    def test_external_geo_tsv_ignores_group_and_matches_nsl(self):
+        files_groups = {
+            "1": {("STA01", self.timestamp): self._station_info("STA01", 0.0, 0.0, network="AA")},
+            "2": {("STA01", self.timestamp): self._station_info("STA01", 30.0, 30.0, network="BB")},
+        }
+        external_geo = self.root / "external_geo_nsl.tsv"
+        external_geo.write_text(
+            "station\tlat\tlon\tnetwork\tlocation\tgroup\n"
+            "STA01\t0.0\t0.1\tAA\t00\t9\n"
+            "STA01\t0.0\t0.2\tBB\t00\t9\n"
+        )
+
+        plan = build_path_plan(
+            files_groups=files_groups,
+            distance_range="0/30",
+            azimuth_range="-1/360",
+            allow_autocorr=False,
+            group_pair_mode="inter",
+            external_geo_tsv_path=external_geo,
+        )
+
+        by_network = {node.network: node for node in plan.nodes}
+        self.assertAlmostEqual(by_network["AA"].lon, 0.1)
+        self.assertAlmostEqual(by_network["BB"].lon, 0.2)
+        self.assertEqual([path.path_id_text for path in plan.paths], ["00010002"])
+
     def test_writes_timestamp_manifest_without_repeating_timestamp(self):
         files_group = {
             ("STA01", self.timestamp): self._station_info("STA01", 0.0, 0.0),
@@ -173,14 +224,14 @@ class TestPathPlanner(unittest.TestCase):
         self.assertEqual(len(inter.paths), 2)
         self.assertEqual(len(all_pairs.paths), 3)
 
-    def _station_info(self, station: str, lat: float, lon: float):
+    def _station_info(self, station: str, lat: float, lon: float, network: str = "XX"):
         paths = []
         for component in ("E", "N", "Z"):
             path = self.root / f"{station}.{component}.sac"
             _write_sac_header(path, lat=lat, lon=lon, ele=1.0)
             paths.append(str(path))
         return {
-            "network": ["XX", "XX", "XX"],
+            "network": [network, network, network],
             "location": ["00", "00", "00"],
             "component": ["E", "N", "Z"],
             "path": paths,

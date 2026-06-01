@@ -73,7 +73,7 @@ class WeightedStackStage:
                     commands = gen_pws_sourcepack_cmd(
                         stack_exe=exe,
                         output_dir=out,
-                        sub_stack_size=cfg.stack.sub_stack_size,
+                        pre_stack_size=cfg.stack.pre_stack_size,
                         gpu_ids=cfg.device.gpu_list,
                         gpu_memory_mib=cfg.device.gpu_memory_mib,
                         cpu_workers=cfg.device.cpu_workers,
@@ -82,7 +82,7 @@ class WeightedStackStage:
                     commands = gen_tfpws_sourcepack_cmd(
                         stack_exe=exe,
                         output_dir=out,
-                        sub_stack_size=cfg.stack.sub_stack_size,
+                        pre_stack_size=cfg.stack.pre_stack_size,
                         gpu_ids=cfg.device.gpu_list,
                         gpu_memory_mib=cfg.device.gpu_memory_mib,
                         tfpws_band=cfg.stack.tfpws_band,

@@ -14,10 +14,10 @@ from typing import Any, Dict, Iterator, Mapping
 from .schema import (
     Advance,
     ArrayInfo,
+    Compute,
     Device,
     Executables,
     Geometry,
-    Preprocess,
     SourcePack,
     Stack,
     Storage,
@@ -36,22 +36,40 @@ class ConfigError(RuntimeError):
 
 BASE_SECTION_MAP: Dict[str, type] = {
     "executables": Executables,
-    "preprocess": Preprocess,
-    "xcorr": Xcorr,
-    "stack": Stack,
-    "device": Device,
-    "storage": Storage,
 }
 
 SEISARRAY_SECTION_RE = re.compile(r"^seisarray([1-9])(?:[._-](.+))?$", re.IGNORECASE)
+RETIRED_SECTION_NAMES = {
+    "preprocess",
+    "xcorr",
+    "stack",
+    "storage",
+    "unpack",
+    "advance",
+    "advance.preprocess",
+    "advance.xcorr",
+    "advance.xcache",
+    "advance.sourcepack",
+    "advance.stack",
+}
+RETIRED_ARRAY_SECTION_RE = re.compile(r"^array[1-9](?:[._-].*)?$", re.IGNORECASE)
+RETIRED_ADVANCE_COMPUTE_KEYS = {
+    "sourcepack_enabled",
+    "sourcepack_sort_within_source",
+    "xcache_async_poll_sec",
+    "sourcepack_async_poll_sec",
+}
+RETIRED_ADVANCE_STORAGE_KEYS = {
+    "result_dir",
+}
 
 
 class Config(Mapping[str, Any]):
     """Main configuration object.
 
-    New configs should use one or more ``[seisarrayN]`` or
-    ``[seisarrayN.source]`` sections plus a global ``[time_filter]`` section.
-    Legacy ``[array1]`` / ``[array2]`` configs remain readable.
+    Configs use one or more ``[seisarrayN]`` or ``[seisarrayN.source]``
+    sections plus global ``[time_filter]``, ``[compute]``, ``[device]``,
+    ``[advance.compute]`` and ``[advance.storage]`` sections.
     """
 
     def __init__(self, ini_path: str | Path, *, env_expand: bool = True) -> None:
@@ -62,9 +80,9 @@ class Config(Mapping[str, Any]):
         self.ini_path = path
         self._cp = cp = configparser.ConfigParser(interpolation=None)
         cp.read(path, encoding="utf-8-sig")
+        self._reject_retired_sections(cp)
 
         self._sections: Dict[str, Any] = {}
-        self._legacy_arrays = not any(SEISARRAY_SECTION_RE.match(sec) for sec in cp.sections())
 
         self.seisarrays = self._load_seisarrays(cp, env_expand=env_expand)
         if not self.seisarrays:
@@ -78,8 +96,7 @@ class Config(Mapping[str, Any]):
             if sec not in cp:
                 missing_secs.append(sec)
                 continue
-            advanced_sec = f"advance.{sec}" if sec in {"preprocess", "xcorr"} else None
-            kv = self._merged_section_items(cp, sec, advanced_sec, env_expand=env_expand)
+            kv = self._section_items(cp, sec, env_expand=env_expand)
             if sec == "executables":
                 kv["_ini_dir"] = str(path.parent.resolve())
             try:
@@ -91,63 +108,107 @@ class Config(Mapping[str, Any]):
         if missing_secs:
             raise ConfigError(f"Missing required section(s): {', '.join(missing_secs)}")
 
-        geometry_kv = (
-            dict(cp["geometry"].items())
-            if "geometry" in cp
-            else {"external_geo_tsv": cp["xcorr"].get("external_geo_tsv", "NONE")}
-        )
-        if env_expand:
-            geometry_kv = {k: self._expandenv(v) for k, v in geometry_kv.items()}
+        if "compute" not in cp:
+            raise ConfigError("Missing required section: compute")
+        compute_kv = self._section_items(cp, "compute", env_expand=env_expand)
+        advance_compute_kv = self._section_items(cp, "advance.compute", env_expand=env_expand)
+        advance_storage_kv = self._section_items(cp, "advance.storage", env_expand=env_expand)
+        self._reject_retired_keys("advance.compute", advance_compute_kv, RETIRED_ADVANCE_COMPUTE_KEYS)
+        self._reject_retired_keys("advance.storage", advance_storage_kv, RETIRED_ADVANCE_STORAGE_KEYS)
+
+        geometry_kv = self._section_items(cp, "geometry", env_expand=env_expand)
         try:
             self._sections["geometry"] = Geometry.from_cfg(geometry_kv)
         except Exception as exc:
             raise ConfigError(f"[geometry] parsing error: {exc}") from None
 
-        xcache_kv = self._merged_section_items(cp, "xcache", "advance.xcache", env_expand=env_expand)
+        compute_parse_kv = dict(compute_kv)
+        _copy_keys(advance_compute_kv, compute_parse_kv, {"skip_step", "phase_only"})
+        try:
+            self._sections["compute"] = Compute.from_cfg(compute_parse_kv)
+        except Exception as exc:
+            raise ConfigError(f"[compute] parsing error: {exc}") from None
+
+        if "device" not in cp:
+            raise ConfigError("Missing required section: device")
+        try:
+            self._sections["device"] = Device.from_cfg(self._section_items(cp, "device", env_expand=env_expand))
+        except Exception as exc:
+            raise ConfigError(f"[device] parsing error: {exc}") from None
+
+        if "max_lag" not in compute_kv:
+            raise ConfigError("[compute] missing required field: max_lag")
+        xcorr_kv = dict(advance_compute_kv)
+        xcorr_kv["max_lag"] = compute_kv["max_lag"]
+        try:
+            self._sections["xcorr"] = Xcorr.from_cfg(xcorr_kv)
+        except Exception as exc:
+            raise ConfigError(f"[compute/advance.compute] xcorr parsing error: {exc}") from None
+
+        if "stack_flag" not in compute_kv:
+            raise ConfigError("[compute] missing required field: stack_flag")
+        stack_kv = dict(advance_compute_kv)
+        stack_kv["stack_flag"] = compute_kv["stack_flag"]
+        try:
+            self._sections["stack"] = Stack.from_cfg(stack_kv)
+        except Exception as exc:
+            raise ConfigError(f"[compute/advance.compute] stack parsing error: {exc}") from None
+
+        if "workspace_dir" not in compute_kv:
+            raise ConfigError("[compute] missing required field: workspace_dir")
+        storage_kv = {"workspace_dir": compute_kv["workspace_dir"]}
+        try:
+            self._sections["storage"] = Storage.from_cfg(storage_kv)
+        except Exception as exc:
+            raise ConfigError(f"[compute.workspace_dir] parsing error: {exc}") from None
+
+        xcache_kv = _project_keys(
+            advance_compute_kv,
+            {
+                "windows_per_xcache": "windows_per_xcache",
+                "xcache_async_after_sac2spec": "async_after_sac2spec",
+                "async_poll_sec": "async_poll_sec",
+                "xcache_cleanup_timestamp_spack": "cleanup_timestamp_spack",
+            },
+        )
         try:
             self._sections["xcache"] = XCache.from_cfg(xcache_kv)
         except Exception as exc:
-            raise ConfigError(f"[xcache] parsing error: {exc}") from None
+            raise ConfigError(f"[advance.compute] xcache parsing error: {exc}") from None
 
-        sourcepack_kv = self._merged_section_items(
-            cp,
-            "sourcepack",
-            "advance.sourcepack",
-            env_expand=env_expand,
+        sourcepack_kv = _project_keys(
+            advance_compute_kv,
+            {
+                "sourcepack_async_after_xc": "async_after_xc",
+                "async_poll_sec": "async_poll_sec",
+            },
         )
         try:
             self._sections["sourcepack"] = SourcePack.from_cfg(sourcepack_kv)
         except Exception as exc:
-            raise ConfigError(f"[sourcepack] parsing error: {exc}") from None
+            raise ConfigError(f"[advance.compute] sourcepack parsing error: {exc}") from None
 
-        unpack_kv = self._merged_section_items(cp, "unpack", "advance.unpack", env_expand=env_expand)
+        unpack_kv = _project_keys(
+            advance_storage_kv,
+            {
+                "unpack_enabled": "enabled",
+                "unpack_target": "target",
+            },
+        )
         try:
             self._sections["unpack"] = Unpack.from_cfg(unpack_kv)
         except Exception as exc:
-            raise ConfigError(f"[unpack] parsing error: {exc}") from None
+            raise ConfigError(f"[advance.storage] parsing error: {exc}") from None
 
-        advance_sec = "advance" if "advance" in cp else "debug" if "debug" in cp else None
-        advance_kv = dict(cp[advance_sec].items()) if advance_sec else {}
-        if env_expand:
-            advance_kv = {k: self._expandenv(v) for k, v in advance_kv.items()}
+        advance_kv = self._section_items(cp, "debug", env_expand=env_expand)
         try:
             self._sections["advance"] = Advance.from_cfg(advance_kv)
         except Exception as exc:
-            raise ConfigError(f"[advance] parsing error: {exc}") from None
-
-        if self._legacy_arrays and self._legacy_has_array2(cp) and "group_pair_mode" not in cp["xcorr"]:
-            # Preserve the historical two-array behavior: array1 x array2 only.
-            self._sections["xcorr"].group_pair_mode = "inter"
+            raise ConfigError(f"[debug] parsing error: {exc}") from None
 
         for name, obj in self._sections.items():
             setattr(self, name, obj)
         self.debug = self.advance
-
-        # Backward-compatible convenience aliases. New code should use
-        # cfg.seisarrays and cfg.time_filter.
-        self.array1 = self.seisarrays[0]
-        if len(self.seisarrays) > 1:
-            self.array2 = self.seisarrays[1]
 
         log.debug(
             "Config build complete. %d seisarray source(s), sections: %s",
@@ -185,32 +246,28 @@ class Config(Mapping[str, Any]):
         if arrays:
             return sorted(arrays, key=lambda item: (int(item.group_id), item.section_name))
 
-        legacy: list[ArrayInfo] = []
-        if "array1" in cp:
-            kv = dict(cp["array1"].items())
-            if env_expand:
-                kv = {k: self._expandenv(v) for k, v in kv.items()}
-            legacy.append(
-                ArrayInfo.from_cfg(
-                    kv,
-                    group_id="1",
-                    section_name="array1",
-                    source_name="legacy",
-                )
+        return []
+
+    def _reject_retired_sections(self, cp: configparser.ConfigParser) -> None:
+        retired = [
+            section
+            for section in cp.sections()
+            if section.lower() in RETIRED_SECTION_NAMES or RETIRED_ARRAY_SECTION_RE.match(section)
+        ]
+        if retired:
+            raise ConfigError(
+                "Retired INI section(s) are no longer supported: "
+                + ", ".join(sorted(retired))
+                + ". Use [seisarrayN], [compute], [advance.compute], [advance.storage], and [debug]."
             )
-        if self._legacy_has_array2(cp):
-            kv = dict(cp["array2"].items())
-            if env_expand:
-                kv = {k: self._expandenv(v) for k, v in kv.items()}
-            legacy.append(
-                ArrayInfo.from_cfg(
-                    kv,
-                    group_id="2",
-                    section_name="array2",
-                    source_name="legacy",
-                )
+
+    def _reject_retired_keys(self, section: str, kv: Mapping[str, str], retired_keys: set[str]) -> None:
+        found = sorted(key for key in kv if key in retired_keys)
+        if found:
+            raise ConfigError(
+                f"Retired INI field(s) in [{section}] are no longer supported: "
+                + ", ".join(found)
             )
-        return legacy
 
     def _load_time_filter(
         self,
@@ -227,34 +284,19 @@ class Config(Mapping[str, Any]):
             except Exception as exc:
                 raise ConfigError(f"[time_filter] parsing error: {exc}") from None
 
-        if self.seisarrays and self._legacy_arrays:
-            try:
-                return TimeFilter.from_array_info(self.seisarrays[0])
-            except Exception as exc:
-                raise ConfigError(f"legacy time filter parsing error: {exc}") from None
-
         raise ConfigError("Missing required section: time_filter")
 
-    def _merged_section_items(
+    def _section_items(
         self,
         cp: configparser.ConfigParser,
         section: str,
-        advanced_section: str | None = None,
         *,
         env_expand: bool,
     ) -> dict[str, str]:
-        kv: dict[str, str] = {}
-        if advanced_section and advanced_section in cp:
-            kv.update(dict(cp[advanced_section].items()))
-        if section in cp:
-            kv.update(dict(cp[section].items()))
+        kv = dict(cp[section].items()) if section in cp else {}
         if env_expand:
             kv = {key: self._expandenv(value) for key, value in kv.items()}
         return kv
-
-    @staticmethod
-    def _legacy_has_array2(cp: configparser.ConfigParser) -> bool:
-        return "array2" in cp and cp["array2"].get("sac_dir", "NONE").strip().upper() != "NONE"
 
     @property
     def is_double_array(self) -> bool:
@@ -314,23 +356,70 @@ class Config(Mapping[str, Any]):
         advanced_out: dict[str, dict[str, str]] = {}
         for array in self.seisarrays:
             data = array.to_dict()
-            for key in ("group_id", "section_name", "source_name", "time_start", "time_end", "time_list"):
+            for key in ("group_id", "section_name", "source_name"):
                 data.pop(key, None)
             cp_out[array.section_name] = {key: _stringify(value) for key, value in data.items()}
 
         for name, obj in self._sections.items():
             data = obj.to_dict() if hasattr(obj, "to_dict") else obj.__dict__
             data = dict(data)
-            if name == "preprocess":
-                _move_keys(data, advanced_out.setdefault("advance.preprocess", {}), {"skip_step"})
-            elif name == "xcorr":
-                _move_keys(data, advanced_out.setdefault("advance.xcorr", {}), {"write_mode", "write_segment"})
+            if name == "compute":
+                _move_keys(data, advanced_out.setdefault("advance.compute", {}), {"skip_step", "phase_only"})
+                cp_out["compute"] = {key: _stringify(value) for key, value in data.items()}
+                continue
+            if name == "xcorr":
+                _move_keys(data, cp_out.setdefault("compute", {}), {"max_lag"})
+                advanced_out.setdefault("advance.compute", {}).update(
+                    {key: _stringify(value) for key, value in data.items()}
+                )
+                continue
+            if name == "stack":
+                _move_keys(data, cp_out.setdefault("compute", {}), {"stack_flag"})
+                advanced_out.setdefault("advance.compute", {}).update(
+                    {key: _stringify(value) for key, value in data.items()}
+                )
+                continue
+            if name == "storage":
+                cp_out.setdefault("compute", {})["workspace_dir"] = _stringify(obj.workspace_dir)
+                continue
 
             if name == "xcache":
-                advanced_out["advance.xcache"] = {key: _stringify(value) for key, value in data.items()}
+                advanced_out.setdefault("advance.compute", {}).update(
+                    _prefixed_items(
+                        data,
+                        {
+                            "windows_per_xcache": "windows_per_xcache",
+                            "async_after_sac2spec": "xcache_async_after_sac2spec",
+                            "async_poll_sec": "async_poll_sec",
+                            "cleanup_timestamp_spack": "xcache_cleanup_timestamp_spack",
+                        },
+                    )
+                )
                 continue
             if name == "sourcepack":
-                advanced_out["advance.sourcepack"] = {key: _stringify(value) for key, value in data.items()}
+                advanced_out.setdefault("advance.compute", {}).update(
+                    _prefixed_items(
+                        data,
+                        {
+                            "async_after_xc": "sourcepack_async_after_xc",
+                            "async_poll_sec": "async_poll_sec",
+                        },
+                    )
+                )
+                continue
+            if name == "unpack":
+                advanced_out.setdefault("advance.storage", {}).update(
+                    _prefixed_items(
+                        data,
+                        {
+                            "enabled": "unpack_enabled",
+                            "target": "unpack_target",
+                        },
+                    )
+                )
+                continue
+            if name == "advance":
+                cp_out["debug"] = {key: _stringify(value) for key, value in data.items()}
                 continue
 
             cp_out[name] = {key: _stringify(value) for key, value in data.items()}
@@ -368,7 +457,11 @@ class Config(Mapping[str, Any]):
 
 
 def _stringify(value: Any) -> str:
+    if value is None:
+        return "AUTO"
     if isinstance(value, (list, tuple)):
+        if not value:
+            return "AUTO"
         return ",".join(str(item) for item in value)
     return str(value)
 
@@ -377,6 +470,28 @@ def _move_keys(source: dict[str, Any], target: dict[str, str], keys: set[str]) -
     for key in keys:
         if key in source:
             target[key] = _stringify(source.pop(key))
+
+
+def _copy_keys(source: Mapping[str, str], target: dict[str, str], keys: set[str]) -> None:
+    for key in keys:
+        if key in source:
+            target[key] = source[key]
+
+
+def _project_keys(source: Mapping[str, str], mapping: Mapping[str, str]) -> dict[str, str]:
+    return {
+        target_key: source[source_key]
+        for source_key, target_key in mapping.items()
+        if source_key in source
+    }
+
+
+def _prefixed_items(source: Mapping[str, Any], mapping: Mapping[str, str]) -> dict[str, str]:
+    return {
+        target_key: _stringify(source[source_key])
+        for source_key, target_key in mapping.items()
+        if source_key in source
+    }
 
 
 if __name__ == "__main__":

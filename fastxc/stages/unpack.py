@@ -19,7 +19,7 @@ class UnpackStage:
             return
         cfg = ctx.cfg
         if not cfg.unpack.enabled:
-            logger.info("Unpack disabled by [unpack].enabled=False.")
+            logger.info("Unpack disabled by [advance.storage].unpack_enabled=False.")
             return
         if not wants_deploy(mode):
             return
@@ -30,7 +30,7 @@ class UnpackStage:
             logger.warning("No final SourcePack output found for unpack target=%s.", cfg.unpack.target)
             return
 
-        threads = cfg.unpack.threads or cfg.device.cpu_workers
+        threads = cfg.device.cpu_workers
         total_files = 0
         total_records = 0
         total_bytes = 0

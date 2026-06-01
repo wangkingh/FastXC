@@ -35,8 +35,6 @@ def _build_xc_args(
     gpu_ids: Sequence[int],
     cpu_workers: int,
     gpu_memory_mib: Sequence[float] | None = None,
-    write_mode: str = "PACK",
-    save_segment: bool = False,
     progress_file: str | Path | None = None,
     debug_mode: bool = False,
 ) -> list[str]:
@@ -47,10 +45,6 @@ def _build_xc_args(
     if not allowed_paths.is_file():
         raise FileNotFoundError(f"XC allowed path table not found: {allowed_paths}")
 
-    del save_segment
-    mode_name = str(write_mode).upper()
-    if mode_name != "PACK":
-        raise ValueError(f"FastXC formal pipeline only supports write_mode=PACK: {write_mode}")
     args = [
         "-I",
         xcspec_index.as_posix(),
@@ -87,8 +81,6 @@ def gen_xc_cmd(
     cclength: float | int,
     gpu_ids: Sequence[int],
     cpu_workers: int,
-    write_mode: str,
-    save_segment: bool,
     debug_mode: bool = False,
     gpu_memory_mib: Sequence[float] | None = None,
 ) -> list[str]:
@@ -107,8 +99,6 @@ def gen_xc_cmd(
         gpu_ids=gpu_ids,
         gpu_memory_mib=gpu_memory_mib,
         cpu_workers=cpu_workers,
-        write_mode=write_mode,
-        save_segment=save_segment,
         progress_file=progress_file,
         debug_mode=debug_mode,
     )

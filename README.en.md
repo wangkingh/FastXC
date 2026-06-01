@@ -190,33 +190,46 @@ time_start = 2017-09-01 00:00:00
 time_end = 2017-09-30 01:00:00
 time_list = NONE
 
-[preprocess]
+[geometry]
+external_geo_tsv = NONE
+
+[compute]
 sac_len = 86400
 win_len = 3600
-shift_len = 3600
+shift_len = AUTO
 delta = 0.1
 normalize = AUTO
 bands = 0.1/2
 whiten = AFTER
-output_phase_only = False
-
-[xcorr]
 max_lag = 100
-distance_range = -1/50000
-azimuth_range = -1/360
-group_pair_mode = all
+stack_flag = 100
+workspace_dir = /path/to/output/workspace
 
 [device]
 gpu_list = 0
 cpu_workers = 20
 
-[storage]
-workspace_dir = /path/to/output/workspace
-
-[advance.xcache]
+[advance.compute]
+skip_step = -1
+phase_only = False
+distance_range = -1/50000
+azimuth_range = -1/360
+group_pair_mode = all
 windows_per_xcache = AUTO
-async_after_sac2spec = True
-cleanup_timestamp_spack = True
+xcache_async_after_sac2spec = True
+async_poll_sec = 5
+xcache_cleanup_timestamp_spack = True
+sourcepack_async_after_xc = True
+pre_stack_size = 10
+tfpws_band = FULL
+tfpws_taper_hz = AUTO
+
+[advance.storage]
+unpack_enabled = True
+unpack_target = ALL
+
+[debug]
+debug = False
 ```
 
 `pattern` describes paths below `sac_dir`. It must start with `{home}` and
@@ -224,6 +237,46 @@ include `{station}`, `{component}` or `{channel}`, plus date fields such as
 `{YYYY}` + `{JJJ}` or `{YYYY}` + `{MM}` + `{DD}`. Use `{*}` for an ignored
 free-form segment and `{?}` for a short non-path segment. See
 [Configuration](docs/CONFIGURATION.md) for the full pattern rules.
+
+`sta_list` belongs to each `[seisarrayN]` or `[seisarrayN.source]` section.
+`NONE` means that source is not filtered by station. A station list file has one
+station code per line; blank lines and lines starting with `#` are ignored. When
+multiple sources are folded into the same group, each source is filtered by its
+own `sta_list` before the group merge.
+
+Common field formats:
+
+- `time_start/time_end`: `YYYY-MM-DD HH:MM:SS`.
+- `time_list`: one timestamp per line, preferably `YYYY-MM-DD HH:MM:SS`; blank
+  lines and `#` comments are ignored; `NONE` uses `time_start/time_end`.
+- `bands`: space-separated `fmin/fmax` pairs, such as `0.2/0.4 0.1/0.2`.
+- `shift_len`: seconds or `AUTO`; `AUTO` means `shift_len = win_len`.
+- `max_lag`: maximum correlation lag in seconds.
+- `stack_flag`: three 0/1 bits for linear/PWS/TF-PWS, for example `100` for
+  linear only and `111` for all three.
+- `distance_range`: `min/max` in km; `-1/50000` is effectively unlimited.
+- `azimuth_range`: `min/max` in degrees; `-1/360` is effectively unlimited.
+- `group_pair_mode`: `intra` for within-group pairs, `inter` for cross-group
+  pairs, or `all` for both.
+
+`[geometry].external_geo_tsv` points to an optional external station-coordinate
+TSV. `NONE` means coordinates are read from SAC header fields
+`STLA/STLO/STEL`. Set it to a TSV path when SAC headers are missing coordinates,
+the header coordinates are not trustworthy, or the same station code needs
+different coordinates by `network` and `location`. The TSV must contain
+`station`, `lat`, and `lon`; `latitude` and `longitude` are also accepted. Optional
+columns include `ele`/`elevation`, `network`, and `location`. `group` is a
+FastXC logical grouping concept and is ignored by external geometry matching.
+When a row has both `network` and `location`, FastXC prefers the
+`network + station + location` match; otherwise it falls back to matching by
+`station`. Coordinates are decimal degrees, with west/south written as negative
+values. Relative paths are resolved from the directory where you run `fastxc`;
+use an absolute path or run from the configuration file's directory.
+
+```text
+station	lat	lon	network	location
+A7K2	38.499907	-98.603619	KS	00
+```
 
 ## Inventory
 
@@ -248,6 +301,7 @@ ncf/
 sourcepack/
 stack/
 stack/rtz_*_sourcepack/
+result_ncf/
 progress/
 log/
 ```
@@ -306,6 +360,52 @@ nvidia-smi
 make -C native print-config
 fastxc doctor config.ini
 ```
+
+## Author And Citation
+
+For questions, suggestions, or contributions, please use
+[GitHub Issues](https://github.com/wangkingh/FastXC/issues). For direct
+discussion, contact the author at
+[wkh16@mail.ustc.edu.cn](mailto:wkh16@mail.ustc.edu.cn).
+
+If FastXC helps your research, please consider citing the FastXC method paper:
+
+Wang et al. (2025). [High-performance CPU-GPU Heterogeneous Computing Method
+for 9-Component Ambient Noise Cross-correlation](https://doi.org/10.1016/j.eqrea.2024.100357).
+Earthquake Research Advances.
+
+## Statement And Acknowledgements
+
+FastXC was originally commissioned by the team of Prof. Weitao Wang at the
+Institute of Geophysics, China Earthquake Administration, and developed with
+teams led by Prof. Huimin Li, Prof. Guangzhong Sun, and Prof. Chao Wu at the
+University of Science and Technology of China. Later optimization and public
+packaging were continued by the author.
+
+We thank colleagues and friends from the University of Science and Technology
+of China, the Institute of Geophysics, China Earthquake Administration, the
+Institute of Earthquake Forecasting, China Earthquake Administration, and the
+Institute of Geology and Geophysics, Chinese Academy of Sciences, for testing,
+trial runs, and feedback.
+
+The v2605 public cleanup, documentation rewrite, and release packaging for this
+project were assisted by OpenAI Codex / GPT Pro. The earlier README title
+illustration was generated with ChatGPT.
+
+## References
+
+- Wang et al. (2025). [High-performance CPU-GPU Heterogeneous Computing Method
+  for 9-Component Ambient Noise Cross-correlation](https://doi.org/10.1016/j.eqrea.2024.100357).
+  Earthquake Research Advances.
+- Bensen, G. D., et al. (2007). [Processing seismic ambient noise data to obtain
+  reliable broad-band surface wave dispersion measurements](https://dx.doi.org/10.1111/j.1365-246x.2007.03374.x).
+  Geophysical Journal International, 169(3), 1239-1260.
+- Cupillard, P., et al. (2011). [The one-bit noise correlation: a theory based
+  on the concepts of coherent and incoherent noise](https://doi.org/10.1111/j.1365-246X.2010.04923.x).
+  Geophysical Journal International, 184(3), 1397-1414.
+- Zhang, Y., et al. (2018). [3-D Crustal Shear-Wave Velocity Structure of the
+  Taiwan Strait and Fujian, SE China, Revealed by Ambient Noise Tomography](https://doi.org/10.1029/2018JB015938).
+  Journal of Geophysical Research: Solid Earth, 123(9), 8016-8031.
 
 ## License
 

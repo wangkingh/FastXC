@@ -57,6 +57,13 @@ def _resolve_normalize(value: str | None, bands: str) -> str:
     return resolved
 
 
+def _resolve_shift_len(value: str | None, win_len: int) -> int:
+    raw = "AUTO" if value is None else str(value).strip().upper()
+    if raw in {"", "AUTO", "NONE"}:
+        return win_len
+    return int(float(raw))
+
+
 def _normalize_tfpws_band(value: str | None) -> str:
     text = "FULL" if value is None else str(value).strip().upper()
     return "FULL" if text in {"", "NONE", "OFF", "FULL", "ALL"} else text
@@ -93,9 +100,6 @@ class ArrayInfo:
     group_id: str = "1"
     section_name: str = "seisarray1"
     source_name: str = ""
-    time_start: str | None = None
-    time_end: str | None = None
-    time_list: str = "NONE"
 
     # ---------- factory ----------
     @classmethod
@@ -116,9 +120,6 @@ class ArrayInfo:
             group_id       = str(group_id),
             section_name   = section_name,
             source_name    = source_name,
-            time_start     = g.get("time_start"),
-            time_end       = g.get("time_end"),
-            time_list      = g.get("time_list", "NONE"),
         )
 
     # ---------- validation ----------
@@ -151,16 +152,6 @@ class TimeFilter:
             time_start=g["time_start"],
             time_end=g["time_end"],
             time_list=g.get("time_list", "NONE"),
-        )
-
-    @classmethod
-    def from_array_info(cls, array: ArrayInfo) -> "TimeFilter":
-        if not array.time_start or not array.time_end:
-            raise ValueError("legacy array config must define time_start and time_end")
-        return cls(
-            time_start=array.time_start,
-            time_end=array.time_end,
-            time_list=array.time_list,
         )
 
     def validate(self) -> None:
@@ -196,10 +187,10 @@ class Geometry:
 
 
 # ---------------------------------------------------------------------- #
-# 2. Preprocess
+# 2. Compute
 # ---------------------------------------------------------------------- #
 @dataclass
-class Preprocess:
+class Compute:
     win_len:    int
     shift_len:  int
     delta:      float
@@ -208,21 +199,22 @@ class Preprocess:
     sac_len:    int = 86400
     whiten:     str = "AFTER"
     skip_step:  str = "-1"
-    output_phase_only: bool = False
+    phase_only: bool = False
 
     @classmethod
-    def from_cfg(cls, g: Mapping[str, str]) -> "Preprocess":
+    def from_cfg(cls, g: Mapping[str, str]) -> "Compute":
         bands = g.get("bands", "")
+        win_len = int(g["win_len"])
         return cls(
-            win_len   = int(g["win_len"]),
-            shift_len = int(g["shift_len"]),
+            win_len   = win_len,
+            shift_len = _resolve_shift_len(g.get("shift_len", "AUTO"), win_len),
             delta     = float(g["delta"]),
             normalize = _resolve_normalize(g.get("normalize", "AUTO"), bands),
             bands     = bands,
             sac_len   = int(float(g.get("sac_len", 86400))),
             whiten    = g.get("whiten", "AFTER").upper(),
             skip_step = g.get("skip_step", "-1"),
-            output_phase_only = _as_bool(g.get("output_phase_only", False)),
+            phase_only = _as_bool(g.get("phase_only", False)),
         )
 
     def validate(self) -> None:
@@ -244,31 +236,27 @@ class Preprocess:
 
 
 # ---------------------------------------------------------------------- #
-# 3. Xcorr   (-C/-M/-D/-Z/-S/-R)
+# 3. Xcorr   (-C/-D/-Z)
 # ---------------------------------------------------------------------- #
 @dataclass
 class Xcorr:
     max_lag:          int
-    write_mode:       str = "PACK"
     distance_range:   str = "-1/50000"
     azimuth_range:    str = "-1/360"
-    write_segment:    bool = False        # -R  True→1
     group_pair_mode:  str = "all"         # intra / inter / all
 
     @classmethod
     def from_cfg(cls, g: Mapping[str, str]) -> "Xcorr":
         return cls(
             max_lag          = int(g["max_lag"]),
-            write_mode       = g.get("write_mode", "PACK").upper(),
             distance_range   = g.get("distance_range", "-1/50000"),
             azimuth_range    = g.get("azimuth_range", "-1/360"),
-            write_segment    = _as_bool(g.get("write_segment", False)),
             group_pair_mode  = g.get("group_pair_mode", "all").strip().lower(),
         )
 
     def validate(self) -> None:
-        if self.write_mode != "PACK":
-            raise ValueError("write_mode must be PACK in the formal pipeline")
+        if self.max_lag <= 0:
+            raise ValueError("max_lag must be > 0")
         if self.group_pair_mode not in {
             "auto",
             "all",
@@ -348,8 +336,8 @@ class SourcePack:
     @classmethod
     def from_cfg(cls, g: Mapping[str, str]) -> "SourcePack":
         return cls(
-            enabled=_as_bool(g.get("enabled", True)),
-            sort_within_source=_as_bool(g.get("sort_within_source", True)),
+            enabled=True,
+            sort_within_source=True,
             async_after_xc=_as_bool(g.get("async_after_xc", True)),
             async_poll_sec=float(g.get("async_poll_sec", 5.0)),
         )
@@ -368,26 +356,28 @@ class SourcePack:
 @dataclass
 class Unpack:
     enabled: bool = True
-    target: str = "FINAL"
-    output_dir: str = "AUTO"
-    threads: int = 0
+    target: str = "ALL"
 
     @classmethod
     def from_cfg(cls, g: Mapping[str, str]) -> "Unpack":
         return cls(
             enabled=_as_bool(g.get("enabled", True)),
-            target=str(g.get("target", "FINAL")).strip().upper(),
-            output_dir=str(g.get("output_dir", "AUTO")).strip(),
-            threads=int(g.get("threads", 0)),
+            target=str(g.get("target", "ALL")).strip().upper(),
         )
+
+    @property
+    def output_dir(self) -> str:
+        return "result_ncf"
 
     def validate(self) -> None:
         if self.target not in {"FINAL", "STACK", "ROTATE", "ALL"}:
             raise ValueError("target must be FINAL, STACK, ROTATE, or ALL")
-        if self.threads < 0:
-            raise ValueError("threads must be >= 0")
 
-    def to_dict(self): return asdict(self)
+    def to_dict(self):
+        return {
+            "enabled": self.enabled,
+            "target": self.target,
+        }
 
 
 # ---------------------------------------------------------------------- #
@@ -396,7 +386,7 @@ class Unpack:
 @dataclass
 class Stack:
     stack_flag:       str = "100"
-    sub_stack_size:   int = 10
+    pre_stack_size:   int = 10
     tfpws_band:       str = "FULL"
     tfpws_taper_hz:   str = "AUTO"
 
@@ -404,7 +394,7 @@ class Stack:
     def from_cfg(cls, g: Mapping[str, str]) -> "Stack":
         return cls(
             stack_flag       = g.get("stack_flag", "100"),
-            sub_stack_size   = int(g.get("sub_stack_size", 10)),
+            pre_stack_size   = int(g.get("pre_stack_size", 10)),
             tfpws_band       = _normalize_tfpws_band(g.get("tfpws_band", "FULL")),
             tfpws_taper_hz   = str(g.get("tfpws_taper_hz", "AUTO")).strip(),
         )
@@ -412,8 +402,8 @@ class Stack:
     def validate(self) -> None:
         if not re.fullmatch(r"[01]{3}", self.stack_flag):
             raise ValueError("stack_flag must be three binary digits")
-        if self.sub_stack_size < 1:
-            raise ValueError("sub_stack_size must be ≥1")
+        if self.pre_stack_size < 1:
+            raise ValueError("pre_stack_size must be ≥1")
         if self.tfpws_band != "FULL":
             Xcorr._check_range(self.tfpws_band, "tfpws_band")
         if self.tfpws_taper_hz.upper() not in {"AUTO", "NONE", "OFF"}:
@@ -565,9 +555,9 @@ class Storage:
 
     @classmethod
     def from_cfg(cls, g):
-        root = g.get("workspace_dir", g.get("output_dir", "./"))
+        root = g["workspace_dir"]
         return cls(
-            output_dir = Path(root).expanduser().resolve(),  # internal backward-compatible alias
+            output_dir = Path(root).expanduser().resolve(),
         )
 
     @property
@@ -580,7 +570,6 @@ class Storage:
     def to_dict(self):
         return {
             "workspace_dir": str(self.workspace_dir),
-            "output_dir": str(self.output_dir),
         }
 
 

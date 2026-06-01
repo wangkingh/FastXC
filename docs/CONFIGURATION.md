@@ -1,6 +1,6 @@
 # FastXC INI 配置说明
 
-FastXC 使用 INI 文件描述数据源、时间范围、预处理、互相关、叠加、设备和
+FastXC 使用 INI 文件描述数据源、时间范围、计算参数、设备资源和
 workspace。推荐先用模板生成配置，再按自己的数据路径修改：
 
 ```bash
@@ -18,8 +18,8 @@ fastxc init -o config.ini
 - `NONE` 表示禁用或不提供文件。
 - `AUTO` 表示让 FastXC 自动选择默认实现或资源参数。
 - 布尔值可使用 `True/False`、`yes/no`、`1/0`、`on/off`。
-- 新配置推荐使用 `[seisarrayN]` 和全局 `[time_filter]`。旧式
-  `[array1]`、`[array2]` 仍可读取，但不建议新项目继续使用。
+- 数据源使用 `[seisarrayN]` 或 `[seisarrayN.source]`；主计算参数集中放在
+  `[compute]`。
 
 ## SAC Path Pattern
 
@@ -83,6 +83,11 @@ label0 label1 label2 label3 label4 label5 label6 label7 label8 label9
 | `sta_list` | 台站白名单文本文件；`NONE` 表示不按台站文件筛选。 |
 | `component_list` | 参与计算的分量列表，如 `E,N,Z`。 |
 
+`sta_list` 是 source 级别的配置，不是全局配置。每个 `[seisarrayN]` 或
+`[seisarrayN.source]` 都可以写自己的白名单。文件一行一个 station code，
+空行和 `#` 开头的注释行会被忽略。多个 source 合并进同一个 group 时，会先
+分别按各自的 `sta_list` 过滤，再合并。
+
 ## `[time_filter]`
 
 控制参与计算的时间范围。
@@ -93,14 +98,38 @@ label0 label1 label2 label3 label4 label5 label6 label7 label8 label9
 | `time_end` | 结束时间，格式 `YYYY-MM-DD HH:MM:SS`。 |
 | `time_list` | 时间白名单文本文件；`NONE` 表示使用 `time_start/time_end` 范围。 |
 
+`time_list` 文件一行一个时间，推荐格式仍然是
+`YYYY-MM-DD HH:MM:SS`。空行和 `#` 开头的注释行会被忽略。例如：
+
+```text
+2022-05-17 00:00:00
+2022-05-18 00:00:00
+# 2022-05-19 00:00:00
+```
+
 ## `[geometry]`
 
 | 字段 | 说明 |
 | --- | --- |
 | `external_geo_tsv` | 外部台站坐标表；`NONE` 表示从 SAC header 读取。 |
 
-外部表至少需要 `station`、`lat`、`lon` 字段。若提供 `group/network/location`，
-FastXC 会优先按完整 GNSL 匹配，否则按 station 匹配。
+`external_geo_tsv = NONE` 时，FastXC 从 SAC header 的 `STLA/STLO/STEL` 读
+取台站坐标。外部表适合三种情况：SAC header 没有坐标、header 坐标需要修正，
+或同一个 station code 在不同 `network/location` 下需要不同坐标。
+
+TSV 表至少需要 `station` 和经纬度列。经纬度推荐写作 `lat`、`lon`，也兼容
+`latitude`、`longitude`。可选列包括 `ele`/`elevation`、`network`、
+`location`。`group` 是 FastXC 内部逻辑分组，不参与外部坐标匹配。
+
+```text
+station	lat	lon	ele	network	location
+A7K2	38.499907	-98.603619	0	KS	00
+```
+
+匹配规则为：若某一行同时提供 `network` 和 `location`，FastXC 优先按
+`network + station + location` 匹配；否则按 `station` 匹配。经纬度单位是
+十进制度，西经和南纬使用负数。相对路径按执行 `fastxc` 命令时的当前目录解
+析；建议写绝对路径，或在配置文件所在目录运行命令。
 
 ## `[executables]`
 
@@ -114,69 +143,22 @@ FastXC 会优先按完整 GNSL 匹配，否则按 station 匹配。
 | `pws` | PWS 后端路径或 `AUTO`。 |
 | `tfpws` | TF-PWS 后端路径或 `AUTO`。 |
 
-## `[preprocess]`
+## `[compute]`
+
+公开配置中，这一段集中放置主要计算参数。
 
 | 字段 | 说明 |
 | --- | --- |
 | `sac_len` | 单个 SAC 文件期望长度，单位秒。 |
 | `win_len` | 单个计算窗口长度，单位秒。 |
-| `shift_len` | 相邻窗口移动步长，单位秒。 |
+| `shift_len` | 相邻窗口移动步长，单位秒；`AUTO` 表示等于 `win_len`。 |
 | `delta` | 采样间隔，单位秒。 |
 | `normalize` | 时间域归一化。`AUTO` 会根据频带数选择 `RUN-ABS` 或 `RUN-ABS-MF`；也可设为 `OFF`、`RUN-ABS`、`RUN-ABS-MF`、`ONE-BIT`。 |
 | `bands` | 频带列表，格式如 `0.2/0.4 0.1/0.2`。 |
 | `whiten` | 谱白化位置：`OFF`、`BEFORE`、`AFTER`、`BOTH`。 |
-| `output_phase_only` | 是否输出 phase-only SEGSPEC，默认关闭。 |
-
-## `[xcorr]`
-
-| 字段 | 说明 |
-| --- | --- |
 | `max_lag` | 互相关最大延迟，单位秒。输出长度约为 `2 * max_lag / delta + 1`。 |
-| `distance_range` | 允许距离范围，格式 `min/max`，单位 km。`-1/50000` 基本等于不限制。 |
-| `azimuth_range` | 允许方位角范围，格式 `min/max`，单位度。 |
-| `group_pair_mode` | 组间规则：`intra` 仅同组，`inter` 仅不同组，`all` 同组和组间都计算。 |
-
-## `[advance.preprocess]`
-
-| 字段 | 说明 |
-| --- | --- |
-| `skip_step` | 调试用窗口筛选。`-1` 表示保留全部窗口；也可写逗号分隔窗口编号。 |
-
-## `[advance.xcorr]`
-
-正式流程固定写 pack 格式。
-
-| 字段 | 说明 |
-| --- | --- |
-| `write_mode` | 必须为 `PACK`。 |
-| `write_segment` | 是否写 legacy segment 输出，正式流程通常为 `False`。 |
-
-## `[advance.xcache]`
-
-| 字段 | 说明 |
-| --- | --- |
-| `windows_per_xcache` | 每个 xcache shard 包含的窗口数；`AUTO` 表示按时间片集中写入。 |
-| `async_after_sac2spec` | SAC2SPEC 每完成一个时间片就异步构建 xcache。 |
-| `async_poll_sec` | 异步轮询间隔，单位秒。 |
-| `cleanup_timestamp_spack` | xcache 完成后删除对应 `spack_by_timestamp/<timestamp>`，节省空间。 |
-
-## `[advance.sourcepack]`
-
-| 字段 | 说明 |
-| --- | --- |
-| `enabled` | 是否构建 SourcePack 索引。正式流程建议保持 `True`。 |
-| `sort_within_source` | 是否按 source/receiver/component 排序。 |
-| `async_after_xc` | XC 每完成一个时间片就异步构建 SourcePack。 |
-| `async_poll_sec` | 异步轮询间隔，单位秒。 |
-
-## `[stack]`
-
-| 字段 | 说明 |
-| --- | --- |
 | `stack_flag` | 三位开关，依次表示 linear/PWS/TF-PWS。例如 `100` 只做 linear，`111` 三种都做。 |
-| `sub_stack_size` | 子叠加大小，主要影响 PWS/TF-PWS。 |
-| `tfpws_band` | TF-PWS 权重频带；`FULL` 表示全频段。 |
-| `tfpws_taper_hz` | TF-PWS 频带 taper 宽度；`AUTO` 自动选择。 |
+| `workspace_dir` | 当前 run 的工作目录。`prepare` 和 `run` 的所有中间产物与结果都写在这里。 |
 
 ## `[device]`
 
@@ -186,25 +168,43 @@ FastXC 会优先按完整 GNSL 匹配，否则按 station 匹配。
 | `gpu_memory_mib` | 每个 worker 的显存上限 MiB；`AUTO` 表示按空闲显存自动分配。 |
 | `cpu_workers` | Python 侧扫描、索引和本地算子的线程数。 |
 
-## `[storage]`
+## `[advance.compute]`
+
+高级计算参数集中在这一段，包括路径筛选、xcache、SourcePack 和 PWS/TF-PWS
+调优。普通示例一般保持默认即可。
 
 | 字段 | 说明 |
 | --- | --- |
-| `workspace_dir` | 当前 run 的工作目录。`prepare` 和 `run` 的所有中间产物与结果都写在这里。 |
+| `skip_step` | 调试用窗口筛选。`-1` 表示保留全部窗口；也可写逗号分隔窗口编号。 |
+| `phase_only` | 是否输出 phase-only SEGSPEC，默认关闭。 |
+| `distance_range` | 允许距离范围，格式 `min/max`，单位 km。`-1/50000` 基本等于不限制。 |
+| `azimuth_range` | 允许方位角范围，格式 `min/max`，单位度。 |
+| `group_pair_mode` | 组间规则：`intra` 仅同组，`inter` 仅不同组，`all` 同组和组间都计算。 |
+| `windows_per_xcache` | 每个 xcache shard 包含的窗口数；`AUTO` 表示按时间片集中写入。 |
+| `xcache_async_after_sac2spec` | SAC2SPEC 每完成一个时间片就异步构建 xcache。 |
+| `async_poll_sec` | 所有异步任务的轮询间隔，单位秒；包括 xcache、spack 清理和 SourcePack。 |
+| `xcache_cleanup_timestamp_spack` | xcache 完成后删除对应 `spack_by_timestamp/<timestamp>`，节省空间。 |
+| `sourcepack_async_after_xc` | XC 每完成一个时间片就异步构建 SourcePack。 |
+| `pre_stack_size` | 预叠加大小，主要影响 PWS/TF-PWS。 |
+| `tfpws_band` | TF-PWS 权重频带；`FULL` 表示全频段。 |
+| `tfpws_taper_hz` | TF-PWS 频带 taper 宽度；`AUTO` 自动选择。 |
 
-## `[unpack]`
+SourcePack 构建和 source 内排序在正式流程中强制启用，不再作为公开参数暴露。
 
-默认开启，用于在主流程末尾把最终 SourcePack/stack 结果导出为传统 SAC 文
-件。如果只想保留紧凑的 SourcePack 结果，可设为 `enabled = False`。
+## `[advance.storage]`
+
+解压和结果存储相关参数集中在这一段。默认会在主流程末尾把最终
+SourcePack/stack 结果导出为传统 SAC 文件。如果只想保留紧凑的 SourcePack
+结果，可设为 `unpack_enabled = False`。
 
 | 字段 | 说明 |
 | --- | --- |
-| `enabled` | 是否在主流程末尾自动导出 SAC。 |
-| `target` | 导出目标：`FINAL`、`STACK`、`ROTATE`、`ALL`。 |
-| `output_dir` | 导出目录；`AUTO` 写到 `workspace_dir/unpacked`。 |
-| `threads` | 导出线程数；`0` 表示使用 `[device].cpu_workers`。 |
+| `unpack_enabled` | 是否在主流程末尾自动导出 SAC。 |
+| `unpack_target` | 导出目标：`ALL`、`FINAL`、`STACK`、`ROTATE`；默认 `ALL`。 |
 
-## `[advance]`
+导出目录固定为 `workspace_dir/result_ncf`。
+
+## `[debug]`
 
 | 字段 | 说明 |
 | --- | --- |

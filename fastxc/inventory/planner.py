@@ -12,6 +12,7 @@ from typing import Dict, Iterable, Optional
 logger = logging.getLogger(__name__)
 
 GNSLKey = tuple[str, str, str, str]
+NSLKey = tuple[str, str, str]
 
 _HEADER_BYTES = 632
 _FLOAT_BLOCK_BYTES = 70 * 4
@@ -203,7 +204,7 @@ def inject_external_geo(
     nodes: Iterable[GeoNode],
     external_geo_tsv_path: str | Path | None,
 ) -> dict[str, int]:
-    exact_rows, station_rows, row_count = load_external_geo(external_geo_tsv_path)
+    nsl_rows, station_rows, row_count = load_external_geo(external_geo_tsv_path)
     if row_count == 0:
         return {
             "external_geo_row_count": 0,
@@ -214,7 +215,7 @@ def inject_external_geo(
     fill_count = 0
     conflict_count = 0
     for node in nodes:
-        geo = exact_rows.get(node.gnsl) or station_rows.get(node.station)
+        geo = nsl_rows.get((node.network, node.station, node.location)) or station_rows.get(node.station)
         if geo is None:
             continue
 
@@ -245,7 +246,7 @@ def inject_external_geo(
 
 def load_external_geo(
     external_geo_tsv_path: str | Path | None,
-) -> tuple[dict[GNSLKey, dict[str, float | None]], dict[str, dict[str, float | None]], int]:
+) -> tuple[dict[NSLKey, dict[str, float | None]], dict[str, dict[str, float | None]], int]:
     if external_geo_tsv_path is None or str(external_geo_tsv_path).strip().upper() == "NONE":
         return {}, {}, 0
 
@@ -253,7 +254,7 @@ def load_external_geo(
     if not path.is_file():
         raise FileNotFoundError(f"external geo TSV file not found: {path}")
 
-    exact_rows: dict[GNSLKey, dict[str, float | None]] = {}
+    nsl_rows: dict[NSLKey, dict[str, float | None]] = {}
     station_rows: dict[str, dict[str, float | None]] = {}
     row_count = 0
     with path.open("r", encoding="utf-8", newline="") as handle:
@@ -263,17 +264,29 @@ def load_external_geo(
         for row_number, row in enumerate(reader, start=2):
             station = _required_cell(row, "station", row_number)
             geo = {
-                "lat": _required_float_cell(row, "lat", row_number),
-                "lon": _required_float_cell(row, "lon", row_number),
-                "ele": _optional_float_cell(row.get("ele")),
+                "lat": _required_float_cell_any(
+                    row,
+                    ("lat", "latitude"),
+                    row_number,
+                    "lat/latitude",
+                ),
+                "lon": _required_float_cell_any(
+                    row,
+                    ("lon", "longitude"),
+                    row_number,
+                    "lon/longitude",
+                ),
+                "ele": _optional_float_cell_any(row, ("ele", "elevation")),
             }
             row_count += 1
 
-            group = (row.get("group") or "").strip()
             network = (row.get("network") or "").strip()
             location = (row.get("location") or "").strip()
-            if group and network and location:
-                exact_rows[(group, network, station, location)] = geo
+            if network and location:
+                key = (network, station, location)
+                if key in nsl_rows:
+                    raise ValueError(f"duplicate network/station/location external geo row for {key!r}")
+                nsl_rows[key] = geo
             else:
                 if station in station_rows:
                     raise ValueError(
@@ -281,7 +294,7 @@ def load_external_geo(
                     )
                 station_rows[station] = geo
 
-    return exact_rows, station_rows, row_count
+    return nsl_rows, station_rows, row_count
 
 
 def build_valid_paths(
@@ -701,15 +714,28 @@ def _required_cell(row: dict[str, str | None], field_name: str, row_number: int)
     return value
 
 
-def _required_float_cell(
+def _required_float_cell_any(
     row: dict[str, str | None],
-    field_name: str,
+    field_names: tuple[str, ...],
     row_number: int,
+    label: str,
 ) -> float:
-    value = _optional_float_cell(row.get(field_name))
-    if value is None:
-        raise ValueError(f"external geo row {row_number}: invalid {field_name!r}")
-    return value
+    for field_name in field_names:
+        value = _optional_float_cell(row.get(field_name))
+        if value is not None:
+            return value
+    raise ValueError(f"external geo row {row_number}: invalid {label!r}")
+
+
+def _optional_float_cell_any(
+    row: dict[str, str | None],
+    field_names: tuple[str, ...],
+) -> float | None:
+    for field_name in field_names:
+        value = _optional_float_cell(row.get(field_name))
+        if value is not None:
+            return value
+    return None
 
 
 def _optional_float_cell(value: str | None) -> float | None:

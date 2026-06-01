@@ -32,8 +32,6 @@ class CrossCorrelationStage:
                 gpu_ids=cfg.device.gpu_list,
                 gpu_memory_mib=cfg.device.gpu_memory_mib,
                 cpu_workers=cfg.device.cpu_workers,
-                write_mode=cfg.xcorr.write_mode,
-                save_segment=cfg.xcorr.write_segment,
                 debug_mode=cfg.debug.debug,
             )
         if wants_deploy(mode):
@@ -56,8 +54,6 @@ class CrossCorrelationStage:
 def _start_sourcepack_materializer(ctx: StageContext, sourcepack_mode: str | None) -> AsyncSourcePackMaterializer | None:
     cfg = ctx.cfg
     if sourcepack_mode is None or not wants_deploy(sourcepack_mode):
-        return None
-    if not cfg.sourcepack.enabled:
         return None
     if not cfg.sourcepack.async_after_xc or cfg.debug.dry_run:
         return None

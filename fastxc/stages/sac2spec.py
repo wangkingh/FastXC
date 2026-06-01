@@ -22,7 +22,7 @@ class Sac2SpecStage:
         cfg = ctx.cfg
         commands: list[str] = []
         if wants_command(mode) or wants_deploy(mode):
-            pp = cfg.preprocess
+            pp = cfg.compute
             commands = gen_sac2spec_cmd(
                 component_num=len(cfg.primary_component_list),
                 sac2spec_exe=cfg.executables.sac2spec,
@@ -37,7 +37,7 @@ class Sac2SpecStage:
                 xcorr_lag_sec=cfg.xcorr.max_lag,
                 gpu_ids=cfg.device.gpu_list,
                 gpu_memory_mib=cfg.device.gpu_memory_mib,
-                output_phase_only=pp.output_phase_only,
+                phase_only=pp.phase_only,
                 debug_mode=cfg.debug.debug,
             )
 

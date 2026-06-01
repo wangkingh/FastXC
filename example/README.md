@@ -48,9 +48,15 @@ Subset:
 - components: `E`, `N`, `Z`
 - files: `84` SAC files
 - size: about `28 MB`
-- station coordinate table: `station_geo.tsv`
+- optional station coordinate table: `station_geo.tsv`
 
 Recommended config: `config.ini`
+
+The bundled config reads station coordinates from the SAC headers
+(`external_geo_tsv = NONE`). To test external geometry loading, set
+`[geometry].external_geo_tsv = data/station_geo.tsv`; the table uses
+`station`, `latitude`, and `longitude`, which are accepted aliases for
+`station`, `lat`, and `lon`.
 
 The example config uses two period bands:
 

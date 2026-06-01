@@ -60,6 +60,7 @@ env/
 /progress/
 /commands/
 /unpacked/
+/result_ncf/
 
 # Nested workspace directories
 **/workspace/spack_by_timestamp/
@@ -72,6 +73,7 @@ env/
 **/workspace/progress/
 **/workspace/commands/
 **/workspace/unpacked/
+**/workspace/result_ncf/
 
 # FastXC binary data products
 *.spack

@@ -1,6 +1,6 @@
 # FastXC 阶段输出说明
 
-FastXC 的所有运行产物都写在 `[storage].workspace_dir` 下。推荐把每次实验、每
+FastXC 的所有运行产物都写在 `[compute].workspace_dir` 下。推荐把每次实验、每
 个数据集或每组关键参数放到独立 workspace，避免不同运行相互覆盖。
 
 ## 总览
@@ -22,11 +22,12 @@ workspace_dir/
   ncf/
   sourcepack/
   stack/
-  unpacked/
+  result_ncf/
 ```
 
-并非每次运行都会出现所有目录。例如用户可以关闭 `[unpack]` 跳过 SAC 导
-出；如果 `cleanup_timestamp_spack = True`，`spack_by_timestamp/<timestamp>`
+并非每次运行都会出现所有目录。例如用户可以关闭
+`[advance.storage].unpack_enabled` 跳过 SAC 导出；如果
+`xcache_cleanup_timestamp_spack = True`，`spack_by_timestamp/<timestamp>`
 会在 xcache 构建完成后被清理。
 
 ## `prepare`
@@ -58,7 +59,7 @@ SAC2SPEC 会把 SAC 时域数据切窗、预处理并转换为频域 SEGSPEC。
 | `spack_by_timestamp/_SUCCESS` | SAC2SPEC 阶段完成标记。 |
 | `progress/sac2spec_progress.tsv` | SAC2SPEC 进度侧写文件。 |
 
-`.spack` 是中间产物。若 `[advance.xcache].cleanup_timestamp_spack = True`，
+`.spack` 是中间产物。若 `[advance.compute].xcache_cleanup_timestamp_spack = True`，
 每个时间片对应的 spack 在 xcache 成功后可以被自动删除。
 
 ## `run`: XCache
@@ -141,13 +142,14 @@ python example/plot_rtz_distance_lines.py \
 
 ## `run`: Unpack
 
-`[unpack].enabled = True` 是默认设置。它会把 SourcePack 或 stack 结果导出为
-传统 SAC 文件；如果只想保留紧凑的 SourcePack 结果，可以关闭该步骤。
+`[advance.storage].unpack_enabled = True` 是默认设置。它会把 SourcePack 或
+stack 结果导出为传统 SAC 文件；如果只想保留紧凑的 SourcePack 结果，可以关
+闭该步骤。默认 `unpack_target = ALL`，会同时导出 stack 和旋转后的结果。
 
 | 路径 | 说明 |
 | --- | --- |
-| `unpacked/` | `output_dir = AUTO` 时的默认导出目录。 |
-| `ncf_<method>_<component_frame>/.../*.SAC` | legacy 风格 SAC 结果目录，具体取决于 `target` 和启用的 stack 方法。 |
+| `result_ncf/` | 固定导出目录，即 `workspace_dir/result_ncf`。 |
+| `ncf_<method>_<component_frame>/.../*.SAC` | legacy 风格 SAC 结果目录，具体取决于 `unpack_target` 和启用的 stack 方法。 |
 
 导出 SAC 会增加文件数量和磁盘占用；这些产物属于本地 workspace 输出，通常
 不应提交到仓库。
@@ -173,7 +175,7 @@ python example/plot_rtz_distance_lines.py \
 - `ncf/`
 - `sourcepack/`
 - `stack/`
-- `unpacked/`
+- `result_ncf/`
 - 生成的 `plots/`
 
 这些目录已经在项目 `.gitignore` 中按公开仓库用途忽略。

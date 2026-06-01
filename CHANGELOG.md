@@ -29,14 +29,30 @@ All notable project changes are recorded here. Dates use `YYYY-MM-DD`.
   SourcePack-to-SAC export path instead of the retired BigSAC wording.
 - Grouped the bundled example into `example/`, with
   data, INI, generated workspace, and optional plot outputs under one tree.
-- Moved rarely changed engineering switches in the starter INI into
-  `advance.*` sections while keeping old section names readable:
-  `advance.preprocess`, `advance.xcorr`, `advance.xcache`, and
-  `advance.sourcepack`.
-- Kept `sac_len` in `[preprocess]` because it describes the input window
-  geometry, and removed the duplicate storage-level `write_mode` field.
+- Kept engineering switches under `advance.compute` and `advance.storage`,
+  while removing retired XC write-mode knobs from the public config surface.
+- Kept `sac_len` in `[compute]` because it describes the input window
+  geometry, and removed duplicate/retired write-mode fields.
 - Removed the obsolete `stack` and `rotate` executable slots from current INI
   templates and configs; stacking and rotation are Python-native FastXC stages.
+- Consolidated the public INI layout so `[compute]` carries the core compute
+  fields (`max_lag`, `stack_flag`, `workspace_dir`), while advanced path
+  filtering, xcache, SourcePack, and PWS/TF-PWS tuning live under
+  `advance.compute`.
+- Renamed the phase-only and pre-stack controls to
+  `advance.compute.phase_only` and `advance.compute.pre_stack_size`.
+- Moved final SAC export settings to `advance.storage`.
+- Further reduced public advanced settings: SourcePack construction and sorting
+  are always enabled, all async polling uses one `advance.compute.async_poll_sec`,
+  and final SAC export is always written to `workspace_dir/result_ncf`.
+- Simplified external station geometry matching so optional
+  `external_geo_tsv` rows match by `network + station + location` or by
+  `station`; the logical FastXC group no longer participates in geometry
+  lookup.
+- Removed old INI compatibility for retired `[arrayN]`, `[preprocess]`,
+  `[xcorr]`, `[stack]`, `[storage]`, `[unpack]`, `advance.xcache`,
+  `advance.sourcepack`, and `advance.stack` layouts.
+- Added `shift_len = AUTO`, which resolves to `win_len`.
 
 ### Notes
 
@@ -128,7 +144,7 @@ All notable project changes are recorded here. Dates use `YYYY-MM-DD`.
   - `[stack]`
   - `[device]`
   - `[storage]`
-  - `[advance]`
+  - `[debug]`
 - Default preprocessing now resolves `normalize = AUTO` to:
   - `RUN-ABS` for one band
   - `RUN-ABS-MF` for multiple bands

@@ -24,13 +24,7 @@ def unpack_product_name(target_name: str) -> str:
 
 
 def unpack_output_root(cfg) -> Path:
-    configured = cfg.unpack.output_dir
-    if configured.upper() in {"", "AUTO", "NONE"}:
-        return cfg.storage.output_dir / "unpacked"
-    path = Path(configured).expanduser()
-    if not path.is_absolute():
-        path = cfg.storage.output_dir / path
-    return path.resolve()
+    return (cfg.storage.output_dir / "result_ncf").resolve()
 
 
 def unpack_targets(cfg) -> list[tuple[str, Path]]:

@@ -172,33 +172,46 @@ time_start = 2017-09-01 00:00:00
 time_end = 2017-09-30 01:00:00
 time_list = NONE
 
-[preprocess]
+[geometry]
+external_geo_tsv = NONE
+
+[compute]
 sac_len = 86400
 win_len = 3600
-shift_len = 3600
+shift_len = AUTO
 delta = 0.1
 normalize = AUTO
 bands = 0.1/2
 whiten = AFTER
-output_phase_only = False
-
-[xcorr]
 max_lag = 100
-distance_range = -1/50000
-azimuth_range = -1/360
-group_pair_mode = all
+stack_flag = 100
+workspace_dir = /path/to/output/workspace
 
 [device]
 gpu_list = 0
 cpu_workers = 20
 
-[storage]
-workspace_dir = /path/to/output/workspace
-
-[advance.xcache]
+[advance.compute]
+skip_step = -1
+phase_only = False
+distance_range = -1/50000
+azimuth_range = -1/360
+group_pair_mode = all
 windows_per_xcache = AUTO
-async_after_sac2spec = True
-cleanup_timestamp_spack = True
+xcache_async_after_sac2spec = True
+async_poll_sec = 5
+xcache_cleanup_timestamp_spack = True
+sourcepack_async_after_xc = True
+pre_stack_size = 10
+tfpws_band = FULL
+tfpws_taper_hz = AUTO
+
+[advance.storage]
+unpack_enabled = True
+unpack_target = ALL
+
+[debug]
+debug = False
 ```
 
 其中 `pattern` 描述 `sac_dir` 下 SAC 文件的相对路径。它必须从 `{home}` 开
@@ -207,6 +220,41 @@ cleanup_timestamp_spack = True
 `{*}` 匹配任意字符串，`{?}` 匹配一个较短的非路径片段；重复出现的同名字段
 必须取相同值。更完整的字段和 pattern 规则见
 [配置说明](docs/CONFIGURATION.md)。
+
+`sta_list` 是每个 `[seisarrayN]` 或 `[seisarrayN.source]` 自己的台站白名
+单；`NONE` 表示这个数据源不按台站筛选。文件格式是一行一个 station code，
+空行和 `#` 开头的注释行会被忽略。多个 source 合并到同一组时，每个 source
+先按自己的 `sta_list` 过滤，再合并到同一个 group。
+
+常用字段格式：
+
+- `time_start/time_end`：`YYYY-MM-DD HH:MM:SS`。
+- `time_list`：一行一个时间，推荐 `YYYY-MM-DD HH:MM:SS`；空行和 `#` 注释
+  会被忽略；`NONE` 表示使用 `time_start/time_end`。
+- `bands`：空格分隔的 `fmin/fmax` 频带，例如 `0.2/0.4 0.1/0.2`。
+- `shift_len`：秒数，或 `AUTO`；`AUTO` 等于 `win_len`。
+- `max_lag`：互相关最大延迟，单位秒。
+- `stack_flag`：三位 0/1，依次控制 linear/PWS/TF-PWS，例如 `100` 只做
+  linear，`111` 三种都做。
+- `distance_range`：`min/max`，单位 km；`-1/50000` 基本等于不限制。
+- `azimuth_range`：`min/max`，单位度；`-1/360` 基本等于不限制。
+- `group_pair_mode`：`intra` 只算同组，`inter` 只算组间，`all` 全部计算。
+
+`[geometry].external_geo_tsv` 用于提供外部台站坐标表。`NONE` 表示从 SAC
+header 的 `STLA/STLO/STEL` 读取坐标；当 SAC header 缺少坐标、坐标不可靠，
+或者同一 station 需要按 `network/location` 区分坐标时，可以把它设为
+一个 TSV 文件路径。TSV 至少需要 `station`、`lat`、`lon` 三列，也兼容
+`latitude`、`longitude`；可选列包括 `ele`/`elevation`、`network`、
+`location`。`group` 是 FastXC 内部的逻辑分组，不参与外部坐标匹配。如果同
+时提供 `network` 和 `location`，FastXC 会优先按 `network + station +
+location` 匹配；否则按 `station` 匹配。经纬度使用十进制度，西经和南纬写负
+数。相对路径按执行 `fastxc` 命令时的当前目录解析；建议使用绝对路径，或在配
+置文件所在目录运行。
+
+```text
+station	lat	lon	network	location
+A7K2	38.499907	-98.603619	KS	00
+```
 
 ## 输出结构
 
@@ -231,6 +279,7 @@ ncf/
 sourcepack/
 stack/
 stack/rtz_*_sourcepack/
+result_ncf/
 progress/
 log/
 ```
@@ -301,6 +350,47 @@ nvidia-smi
 make -C native print-config
 fastxc doctor config.ini
 ```
+
+## 作者与引用
+
+如果你有问题、建议，或希望参与改进，欢迎在
+[GitHub Issues](https://github.com/wangkingh/FastXC/issues) 中讨论。
+更深入的问题也可以通过邮件联系作者：
+[wkh16@mail.ustc.edu.cn](mailto:wkh16@mail.ustc.edu.cn)。
+
+如果 FastXC 对你的研究有帮助，欢迎引用下列 FastXC 方法论文：
+
+Wang et al. (2025). [High-performance CPU-GPU Heterogeneous Computing Method
+for 9-Component Ambient Noise Cross-correlation](https://doi.org/10.1016/j.eqrea.2024.100357).
+Earthquake Research Advances.
+
+## 声明与致谢
+
+FastXC 最早由中国地震局地球物理研究所王伟涛老师团队委托中国科学技术大学
+计算机学院李会民教授、网络信息中心孙广中老师和吴超老师团队开发；后续优化
+与公开整理主要由作者继续完成。
+
+感谢来自中国科学技术大学、中国地震局地球物理研究所、中国地震局预测所、
+中国科学院地质与地球物理研究所的同事和朋友在测试、试运行和反馈中提供的
+帮助。
+
+本项目 v2605 公开整理、文档重写和发布打包过程使用了 OpenAI Codex / GPT Pro
+辅助。早期 README 标题配图由 ChatGPT 生成。
+
+## 参考文献
+
+- Wang et al. (2025). [High-performance CPU-GPU Heterogeneous Computing Method
+  for 9-Component Ambient Noise Cross-correlation](https://doi.org/10.1016/j.eqrea.2024.100357).
+  Earthquake Research Advances.
+- Bensen, G. D., et al. (2007). [Processing seismic ambient noise data to obtain
+  reliable broad-band surface wave dispersion measurements](https://dx.doi.org/10.1111/j.1365-246x.2007.03374.x).
+  Geophysical Journal International, 169(3), 1239-1260.
+- Cupillard, P., et al. (2011). [The one-bit noise correlation: a theory based
+  on the concepts of coherent and incoherent noise](https://doi.org/10.1111/j.1365-246X.2010.04923.x).
+  Geophysical Journal International, 184(3), 1397-1414.
+- Zhang, Y., et al. (2018). [3-D Crustal Shear-Wave Velocity Structure of the
+  Taiwan Strait and Fujian, SE China, Revealed by Ambient Noise Tomography](https://doi.org/10.1029/2018JB015938).
+  Journal of Geophysical Research: Solid Earth, 123(9), 8016-8031.
 
 ## 许可证
 

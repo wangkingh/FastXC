@@ -231,8 +231,8 @@ def _write_task_config(
     cp = configparser.ConfigParser(interpolation=None)
     cp.optionxform = str
     cp.read(Path(base_ini).expanduser(), encoding="utf-8-sig")
-    _ensure_section(cp, "storage")
-    cp["storage"]["workspace_dir"] = task_workspace.as_posix()
+    _ensure_section(cp, "compute")
+    cp["compute"]["workspace_dir"] = task_workspace.as_posix()
     _ensure_section(cp, "executables")
     cp["executables"]["executable_root"] = "NONE"
     for key, value in node.executables.items():
@@ -244,10 +244,9 @@ def _write_task_config(
         cp["device"]["gpu_memory_mib"] = node.gpu_memory_mib
     if node.cpu_workers is not None:
         cp["device"]["cpu_workers"] = str(node.cpu_workers)
-    _ensure_section(cp, "stack")
-    cp["stack"]["stack_flag"] = "000"
-    _ensure_section(cp, "unpack")
-    cp["unpack"]["enabled"] = "False"
+    cp["compute"]["stack_flag"] = "000"
+    _ensure_section(cp, "advance.storage")
+    cp["advance.storage"]["unpack_enabled"] = "False"
     output_ini.parent.mkdir(parents=True, exist_ok=True)
     with output_ini.open("w", encoding="utf-8") as handle:
         cp.write(handle)

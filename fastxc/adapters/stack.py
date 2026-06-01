@@ -40,7 +40,7 @@ def _write_list(path: Path, rows: Sequence[Path]) -> None:
 def gen_pws_sourcepack_cmd(
     stack_exe: str | Path,
     output_dir: str | Path,
-    sub_stack_size: int = 10,
+    pre_stack_size: int = 10,
     *,
     gpu_ids: Sequence[int] | None = None,
     gpu_memory_mib: Sequence[float] | None = None,
@@ -82,7 +82,7 @@ def gen_pws_sourcepack_cmd(
     gpu_memory_list = _format_gpu_memory_mib(gpu_memory_mib)
     if gpu_memory_list is not None:
         cmd_parts.extend(["-M", gpu_memory_list])
-    cmd_parts.extend(["-B", str(max(1, int(sub_stack_size)))])
+    cmd_parts.extend(["-B", str(max(1, int(pre_stack_size)))])
 
     command = " ".join(_quote(part) for part in cmd_parts)
     review_path = write_command_review(out_root, "pws_sourcepack", [command])
@@ -94,7 +94,7 @@ def gen_pws_sourcepack_cmd(
 def gen_tfpws_sourcepack_cmd(
     stack_exe: str | Path,
     output_dir: str | Path,
-    sub_stack_size: int = 10,
+    pre_stack_size: int = 10,
     *,
     gpu_ids: Sequence[int] | None = None,
     gpu_memory_mib: Sequence[float] | None = None,
@@ -144,7 +144,7 @@ def gen_tfpws_sourcepack_cmd(
         taper = "AUTO" if tfpws_taper_hz is None else str(tfpws_taper_hz).strip()
         if taper.upper() not in {"", "AUTO", "NONE", "OFF"}:
             cmd_parts.extend(["-T", taper])
-    cmd_parts.extend(["-B", str(max(1, int(sub_stack_size)))])
+    cmd_parts.extend(["-B", str(max(1, int(pre_stack_size)))])
 
     command = " ".join(_quote(part) for part in cmd_parts)
     review_path = write_command_review(out_root, "tfpws_sourcepack", [command])

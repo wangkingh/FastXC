@@ -180,9 +180,8 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
             windows = cfg.xcache.windows_per_xcache
             print(f"  windows_per_xcache: {windows if windows is not None else 'AUTO'}")
             print(f"  xcache_async_after_sac2spec: {cfg.xcache.async_after_sac2spec}")
+            print(f"  async_poll_sec: {cfg.xcache.async_poll_sec:g}")
             print(f"  xcache_cleanup_timestamp_spack: {cfg.xcache.cleanup_timestamp_spack}")
-            print(f"  xcorr_write_mode: {cfg.xcorr.write_mode}")
-            print(f"  sourcepack_enabled: {cfg.sourcepack.enabled}")
             print(f"  sourcepack_async_after_xc: {cfg.sourcepack.async_after_xc}")
             print(f"  unpack_enabled: {cfg.unpack.enabled}")
             print(f"  unpack_target: {cfg.unpack.target}")

@@ -17,9 +17,6 @@ class SourcePackStage:
         if skip_stage(self.name, mode):
             return
         cfg = ctx.cfg
-        if not cfg.sourcepack.enabled:
-            logger.info("SourcePack disabled by [sourcepack].enabled=False.")
-            return
         if not (wants_prepare(mode) or wants_command(mode) or wants_deploy(mode)):
             return
 
