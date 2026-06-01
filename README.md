@@ -2,6 +2,8 @@
 
 [English](README.en.md) | [文档](docs/README.md) | [配置说明](docs/CONFIGURATION.md) | [输出说明](docs/OUTPUTS.md) | [更新日志](CHANGELOG.md)
 
+本项目的 v2605 公开整理、文档重写和发布打包过程使用了 OpenAI Codex / GPT Pro 辅助。
+
 FastXC 是一套面向 SAC 波形数据的环境噪声互相关计算流程，主要服务
 Linux、WSL 和 HPC 场景。Python 层负责配置解析、SAC inventory、路径规划、
 阶段调度和索引格式；CUDA/C 后端负责 SAC2SPEC、互相关、PWS 和 TF-PWS 等重
@@ -252,7 +254,7 @@ fastxc inspect-xcache -I /path/to/xcache
 - [Configuration](docs/CONFIGURATION.md)：INI 字段、路径 pattern 和常见取值。
 - [Architecture](docs/ARCHITECTURE.md)：数据流和模块边界。
 - [Outputs](docs/OUTPUTS.md)：各阶段输出目录和产物用途。
-- [Results](docs/RESULTS.md)：为什么公开仓库不包含大型 benchmark 结果。
+- [Results](docs/RESULTS.md)：公开仓库中的结果产物和本地输出保留策略。
 - [Changelog](CHANGELOG.md)：架构调整、兼容性变化和历史决策。
 
 ## 项目目录

@@ -168,7 +168,7 @@ fastxc prepare configs/test_suite/public_smoke_1hz_kansas.ini
 fastxc run configs/test_suite/public_smoke_1hz_kansas.ini
 ```
 
-Private benchmark matrices, local data paths, large result directories, and
+Private result matrices, local data paths, large result directories, and
 machine-specific performance notes should not be committed to the public
 repository.
 
@@ -207,7 +207,7 @@ the public smoke test self-contained.
   TF-PWS, and rotation.
 - Add compatibility only when it protects a real existing config or workflow.
 - Keep public docs free of private hostnames, absolute local data paths, and
-  large benchmark result references.
+  large local result references.
 
 ## Quick Orientation Checklist
 

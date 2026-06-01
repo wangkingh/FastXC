@@ -2,6 +2,9 @@
 
 [中文主文档](README.md) | [Docs](docs/README.md) | [Configuration](docs/CONFIGURATION.md) | [Outputs](docs/OUTPUTS.md) | [Changelog](CHANGELOG.md)
 
+The v2605 public cleanup, documentation rewrite, and release packaging for this
+project were assisted by OpenAI Codex / GPT Pro.
+
 FastXC is a Linux/HPC-first ambient-noise cross-correlation pipeline for SAC
 waveforms. Python prepares reusable inventory tables and runtime inputs; the
 native CUDA/C backends perform SAC2SPEC, cross-correlation, PWS/TF-PWS, and
@@ -168,8 +171,8 @@ Longer project notes live under `docs/`:
 - [Architecture](docs/ARCHITECTURE.md) describes the current
   `spack -> xcache -> sourcepack` data flow.
 - [Outputs](docs/OUTPUTS.md) describes stage-by-stage workspace outputs.
-- [Results](docs/RESULTS.md) explains why large benchmark artifacts are not
-  included in the public repository.
+- [Results](docs/RESULTS.md) explains public result artifacts and local output
+  retention.
 
 ## Key Configuration Fields
 

@@ -9,7 +9,7 @@ All notable project changes are recorded here. Dates use `YYYY-MM-DD`.
 - Added `docs/` as the stable public documentation home:
   - `docs/ARCHITECTURE.md`
   - `docs/RESULTS.md`
-- Kept private benchmark matrices and large result artifacts outside the public
+- Kept private validation matrices and large result artifacts outside the public
   repository.
 
 ### Changed
@@ -21,7 +21,7 @@ All notable project changes are recorded here. Dates use `YYYY-MM-DD`.
   instead of the top-level usage page.
 - Reduced public test-suite configs to one self-contained smoke test based on
   bundled `example/data`.
-- Removed private/local testing notes and machine-specific benchmark paths from
+- Removed private/local testing notes and machine-specific result paths from
   the public documentation surface.
 - Simplified native build documentation and Makefile targets so `native` and
   `native-full` build all CUDA backends, including TF-PWS, in one pass.

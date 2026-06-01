@@ -1,7 +1,7 @@
-# Results and Benchmarks
+# Results
 
-Large benchmark outputs, retained local workspaces, and private test matrices
-are intentionally not included in the public repository.
+Generated FastXC result directories are intentionally not included in the public
+repository.
 
 FastXC result directories can contain machine-local paths, large binary packs,
 and data-derived artifacts. Keep those outside Git and publish only sanitized
@@ -19,5 +19,5 @@ That smoke configuration reads the bundled example data under `example/data`
 and writes the ignored workspace under `example/workspace`.
 
 The public plotting helper lives with the bundled example:
-`example/plot_rtz_distance_lines.py`. Project-local benchmark and Hi-net
-inspection scripts are intentionally kept out of the public repository.
+`example/plot_rtz_distance_lines.py`. Project-local inspection scripts and
+machine-specific result folders should stay outside the public repository.

@@ -25,9 +25,9 @@ workspace_dir/
   unpacked/
 ```
 
-并非每次运行都会出现所有目录。例如 `unpack/` 默认关闭；如果
-`cleanup_timestamp_spack = True`，`spack_by_timestamp/<timestamp>` 会在
-xcache 构建完成后被清理。
+并非每次运行都会出现所有目录。例如用户可以关闭 `[unpack]` 跳过 SAC 导
+出；如果 `cleanup_timestamp_spack = True`，`spack_by_timestamp/<timestamp>`
+会在 xcache 构建完成后被清理。
 
 ## `prepare`
 
@@ -141,15 +141,16 @@ python example/plot_rtz_distance_lines.py \
 
 ## `run`: Unpack
 
-`[unpack].enabled = False` 是默认设置。打开后会把 SourcePack 或 stack 结果导
-出为传统 SAC 文件。
+`[unpack].enabled = True` 是默认设置。它会把 SourcePack 或 stack 结果导出为
+传统 SAC 文件；如果只想保留紧凑的 SourcePack 结果，可以关闭该步骤。
 
 | 路径 | 说明 |
 | --- | --- |
 | `unpacked/` | `output_dir = AUTO` 时的默认导出目录。 |
 | `ncf_<method>_<component_frame>/.../*.SAC` | legacy 风格 SAC 结果目录，具体取决于 `target` 和启用的 stack 方法。 |
 
-导出 SAC 会显著增加文件数量和磁盘占用；公开示例和测试通常保持关闭。
+导出 SAC 会增加文件数量和磁盘占用；这些产物属于本地 workspace 输出，通常
+不应提交到仓库。
 
 ## 运行审计文件
 

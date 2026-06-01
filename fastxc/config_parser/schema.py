@@ -367,7 +367,7 @@ class SourcePack:
 # ---------------------------------------------------------------------- #
 @dataclass
 class Unpack:
-    enabled: bool = False
+    enabled: bool = True
     target: str = "FINAL"
     output_dir: str = "AUTO"
     threads: int = 0
@@ -375,7 +375,7 @@ class Unpack:
     @classmethod
     def from_cfg(cls, g: Mapping[str, str]) -> "Unpack":
         return cls(
-            enabled=_as_bool(g.get("enabled", False)),
+            enabled=_as_bool(g.get("enabled", True)),
             target=str(g.get("target", "FINAL")).strip().upper(),
             output_dir=str(g.get("output_dir", "AUTO")).strip(),
             threads=int(g.get("threads", 0)),

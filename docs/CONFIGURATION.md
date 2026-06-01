@@ -194,7 +194,8 @@ FastXC 会优先按完整 GNSL 匹配，否则按 station 匹配。
 
 ## `[unpack]`
 
-默认关闭。只有需要把 SourcePack/stack 结果物化为大量 SAC 文件时再打开。
+默认开启，用于在主流程末尾把最终 SourcePack/stack 结果导出为传统 SAC 文
+件。如果只想保留紧凑的 SourcePack 结果，可设为 `enabled = False`。
 
 | 字段 | 说明 |
 | --- | --- |
