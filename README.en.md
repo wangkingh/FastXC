@@ -15,7 +15,7 @@ are not supported.
 Clone the repository or unpack a release archive, then enter the project root:
 
 ```bash
-git clone <repo-url> FastXC
+git clone https://github.com/wangkingh/FastXC.git FastXC
 cd FastXC
 
 # Or unpack a release archive.
