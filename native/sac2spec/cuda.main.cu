@@ -42,13 +42,13 @@ static int WriteSuccessMarker(const char *path)
     return 0;
 }
 
-static int SpackRootHasPreviousOutputs(const char *path)
+static int StepackRootHasPreviousOutputs(const char *path)
 {
     DIR *dir = opendir(path);
     struct dirent *entry;
     if (dir == NULL)
     {
-        LOG_ERROR("open_spack_dir_failed", "path=\"%s\"", path);
+        LOG_ERROR("open_stepack_dir_failed", "path=\"%s\"", path);
         return -1;
     }
 
@@ -59,7 +59,7 @@ static int SpackRootHasPreviousOutputs(const char *path)
         {
             continue;
         }
-        LOG_ERROR("spack_dir_not_empty",
+        LOG_ERROR("stepack_dir_not_empty",
                   "path=\"%s\" entry=\"%s\" action=clean_or_choose_new_output",
                   path, name);
         closedir(dir);
@@ -80,16 +80,16 @@ int main(int argc, char **argv)
     {
         return EXIT_FAILURE;
     }
-    int spack_state = SpackRootHasPreviousOutputs(output.spack_root.c_str());
-    if (spack_state != 0)
+    int stepack_state = StepackRootHasPreviousOutputs(output.stepack_root.c_str());
+    if (stepack_state != 0)
     {
         return EXIT_FAILURE;
     }
 
     LOG_INFO("sac2spec_run_start",
-             "input=\"%s\" output_root=\"%s\" spack_by_timestamp_root=\"%s\" progress_file=\"%s\" sac_len_sec=%.8g num_ch=%d gpu_worker_count=%d threads=%d lazy_async=%d gpu_ram_limit_count=%d",
+             "input=\"%s\" output_root=\"%s\" stepack_root=\"%s\" progress_file=\"%s\" sac_len_sec=%.8g num_ch=%d gpu_worker_count=%d threads=%d lazy_async=%d gpu_ram_limit_count=%d",
              argument.input_list, output.root.c_str(),
-             output.spack_root.c_str(), output.progress_file.c_str(),
+             output.stepack_root.c_str(), output.progress_file.c_str(),
              argument.sac_len_sec,
              argument.num_ch, argument.gpu_worker_count, argument.thread_num,
              argument.lazy_async, argument.gpu_ram_limit_count);
@@ -221,15 +221,15 @@ int main(int argc, char **argv)
              "sac_len_sec=%.8g delta=%.8g first_header_npts=%d target_npts=%d",
              argument.sac_len_sec, delta, sachd.npts, npts);
 
-    int segment_pts_1x = segment_length_from_seconds(argument.seglen, npts, delta);
+    int segment_pts = segment_length_from_seconds(argument.seglen, npts, delta);
 
     int shift_length_pts = (int)llround((double)argument.segshift / (double)delta);
     if (shift_length_pts < 1)
-        shift_length_pts = segment_pts_1x;
+        shift_length_pts = segment_pts;
     int nstep = 0;
-    if (segment_pts_1x <= npts)
+    if (segment_pts <= npts)
     {
-        nstep = (npts - segment_pts_1x) / shift_length_pts + 1;
+        nstep = (npts - segment_pts) / shift_length_pts + 1;
         if (nstep < 1)
             nstep = 1;
     }
@@ -238,29 +238,29 @@ int main(int argc, char **argv)
         nstep = 1;
     }
     LOG_INFO("segment_plan", "npts=%d delta=%.8g segment_pts=%d shift_pts=%d nstep=%d",
-             npts, delta, segment_pts_1x, shift_length_pts, nstep);
+             npts, delta, segment_pts, shift_length_pts, nstep);
 
-    int max_output_nfft = segment_pts_1x * 2;
+    int max_output_nfft = segment_pts * 2;
     int xcorr_keep_pts = (int)llround((double)argument.xcorr_lag_sec / (double)delta);
-    if (xcorr_keep_pts > segment_pts_1x)
+    if (xcorr_keep_pts > segment_pts)
     {
         LOG_WARN("xcorr_keep_clamped",
                  "requested_sec=%.8g requested_pts=%d segment_pts=%d effective_pts=%d",
-                 argument.xcorr_lag_sec, xcorr_keep_pts, segment_pts_1x, segment_pts_1x);
-        xcorr_keep_pts = segment_pts_1x;
+                 argument.xcorr_lag_sec, xcorr_keep_pts, segment_pts, segment_pts);
+        xcorr_keep_pts = segment_pts;
     }
-    int output_nfft = next_even_smooth_2357_length(segment_pts_1x + xcorr_keep_pts);
+    int output_nfft = next_even_smooth_2357_length(segment_pts + xcorr_keep_pts);
     if (output_nfft > max_output_nfft)
     {
         output_nfft = max_output_nfft;
     }
     int nspec_output = output_nfft / 2 + 1;
 
-    float df_1x = 1.0f / (segment_pts_1x * delta);
+    float segment_df = 1.0f / (segment_pts * delta);
     float df_output = 1.0f / (output_nfft * delta);
     LOG_INFO("output_fft_plan",
              "segment_pts=%d xcorr_keep_sec=%.8g xcorr_keep_pts=%d output_nfft=%d nspec=%d df=%.8g",
-             segment_pts_1x, argument.xcorr_lag_sec, xcorr_keep_pts,
+             segment_pts, argument.xcorr_lag_sec, xcorr_keep_pts,
              output_nfft, nspec_output, df_output);
 
     int filter_count = 0;
@@ -279,12 +279,12 @@ int main(int argc, char **argv)
                   argument.filter_file, freq_low, freq_high);
         exit(EXIT_FAILURE);
     }
-    int f_idx1 = int(freq_low * 0.667f / df_1x);
-    int f_idx2 = int(freq_low / df_1x);
-    int f_idx3 = int(freq_high / df_1x);
-    int f_idx4 = int(freq_high * 1.333f / df_1x);
-    int filter_padding_pts = estimateButterworthFilterPadding(filter, filter_count, segment_pts_1x);
-    int filter_nfft = next_even_smooth_2357_length(segment_pts_1x + filter_padding_pts);
+    int f_idx1 = int(freq_low * 0.667f / segment_df);
+    int f_idx2 = int(freq_low / segment_df);
+    int f_idx3 = int(freq_high / segment_df);
+    int f_idx4 = int(freq_high * 1.333f / segment_df);
+    int filter_padding_pts = estimateButterworthFilterPadding(filter, filter_count, segment_pts);
+    int filter_nfft = next_even_smooth_2357_length(segment_pts + filter_padding_pts);
     if (filter_nfft > max_output_nfft)
     {
         filter_nfft = max_output_nfft;
@@ -292,7 +292,7 @@ int main(int argc, char **argv)
     float df_filter = 1.0f / (filter_nfft * delta);
     LOG_INFO("filter_padding_plan",
              "segment_pts=%d filter_padding_pts=%d filter_nfft=%d output_nfft=%d max_output_nfft=%d",
-             segment_pts_1x, filter_padding_pts, filter_nfft, output_nfft, max_output_nfft);
+             segment_pts, filter_padding_pts, filter_nfft, output_nfft, max_output_nfft);
     FilterResp *myResp = processButterworthFilters(filter, filter_count, df_filter, filter_nfft);
     if (myResp == NULL)
     {
@@ -394,10 +394,10 @@ int main(int argc, char **argv)
     plan.in_paths = InPaths;
     plan.meta = MetaRows;
     plan.num_ch = num_ch;
-    plan.spack_root = output.spack_root.c_str();
+    plan.stepack_root = output.stepack_root.c_str();
     plan.npts = npts;
     plan.delta = delta;
-    plan.segment_pts = segment_pts_1x;
+    plan.segment_pts = segment_pts;
     plan.shift_pts = shift_length_pts;
     plan.nstep_valid = nstep_valid;
     plan.output_nfft = output_nfft;
@@ -433,7 +433,7 @@ int main(int argc, char **argv)
     TimestampTracker timestamp_tracker;
     memset(&timestamp_tracker, 0, sizeof(timestamp_tracker));
     if (TimestampTrackerInit(&timestamp_tracker, &MetaRows, num_ch,
-                             nValid_batch, output.spack_root.c_str()) != 0)
+                             nValid_batch, output.stepack_root.c_str()) != 0)
     {
         LOG_ERROR("timestamp_tracker_init_failed", "groups=%zu num_ch=%d",
                   nValid_batch, num_ch);
@@ -451,7 +451,7 @@ int main(int argc, char **argv)
                  i, argument.gpu_ids[i], worker_gpu_ram_limit_mib);
         worker_plans[i].gpu_id = argument.gpu_ids[i];
         worker_plans[i].gpu_frame_cap = EstimateGpuFrameBatch((size_t)argument.gpu_ids[i],
-                                                              segment_pts_1x,
+                                                              segment_pts,
                                                               filter_nfft, output_nfft,
                                                               num_ch, filter_count,
                                                               plan.wh_flag, (size_t)do_runabs,
@@ -511,7 +511,7 @@ int main(int argc, char **argv)
     DestroyGpuWorkerRuntime(&worker_runtime);
     TaskQueueDestroy(&queue);
 
-    if (!failed && WriteSuccessMarker(output.spack_success_file.c_str()) != 0)
+    if (!failed && WriteSuccessMarker(output.stepack_success_file.c_str()) != 0)
     {
         failed = 1;
     }

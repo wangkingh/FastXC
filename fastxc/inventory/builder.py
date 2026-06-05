@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import shutil
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,10 +23,12 @@ from .source_scanner import organize_seisarrays
 class InventoryResult:
     root: Path
     sac_index: Path
+    timestamp_index: Path
     allowed_paths: Path
     nsl_catalog: Path
     metadata: Path
     sac_row_count: int
+    timestamp_count: int
     nsl_count: int
     allowed_path_count: int
 
@@ -36,6 +39,10 @@ def inventory_root(config: Any) -> Path:
 
 def sac_index_path(root: str | Path) -> Path:
     return Path(root).expanduser().resolve() / "manifest" / "sac_index.tsv"
+
+
+def timestamp_index_path(root: str | Path) -> Path:
+    return Path(root).expanduser().resolve() / "manifest" / "timestamp_index.tsv"
 
 
 def timestamp_manifest_lists(root: str | Path) -> list[Path]:
@@ -96,15 +103,18 @@ def build_inventory(config: Any) -> InventoryResult:
         )
 
     sac_index, sac_row_count = write_sac_index(root)
+    timestamp_index, timestamp_count = write_timestamp_index(root)
     metadata = write_inventory_metadata(config)
 
     return InventoryResult(
         root=root,
         sac_index=sac_index,
+        timestamp_index=timestamp_index,
         allowed_paths=root / "path_plan" / "allowed_paths.tsv",
         nsl_catalog=root / "path_plan" / "nsl_catalog.tsv",
         metadata=metadata,
         sac_row_count=sac_row_count,
+        timestamp_count=timestamp_count,
         nsl_count=len(path_plan.nodes),
         allowed_path_count=len(path_plan.paths),
     )
@@ -115,10 +125,13 @@ def require_inventory(config: Any) -> None:
     missing: list[Path] = []
     allowed_paths = root / "path_plan" / "allowed_paths.tsv"
     sac_index = sac_index_path(root)
+    timestamp_index = timestamp_index_path(root)
     if not allowed_paths.is_file():
         missing.append(allowed_paths)
     if not sac_index.is_file():
         missing.append(sac_index)
+    if not timestamp_index.is_file():
+        missing.append(timestamp_index)
     if missing:
         preview = "\n  ".join(str(path) for path in missing)
         raise FileNotFoundError(
@@ -132,6 +145,14 @@ def ensure_sac_index(root: str | Path) -> Path:
     if path.is_file():
         return path
     path, _row_count = write_sac_index(root)
+    return path
+
+
+def ensure_timestamp_index(root: str | Path) -> Path:
+    path = timestamp_index_path(root)
+    if path.is_file():
+        return path
+    path, _timestamp_count = write_timestamp_index(root)
     return path
 
 
@@ -153,6 +174,30 @@ def write_sac_index(root: str | Path) -> tuple[Path, int]:
     return index_path, row_count
 
 
+def write_timestamp_index(root: str | Path) -> tuple[Path, int]:
+    root_path = Path(root).expanduser().resolve()
+    index_path = timestamp_index_path(root_path)
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+
+    counts: OrderedDict[str, int] = OrderedDict()
+    sac_index = ensure_sac_index(root_path)
+    with sac_index.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        if reader.fieldnames and "timestamp" in reader.fieldnames:
+            for row in reader:
+                timestamp = row.get("timestamp", "").strip()
+                if timestamp:
+                    counts[timestamp] = counts.get(timestamp, 0) + 1
+
+    with index_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, delimiter="\t")
+        writer.writerow(["timestamp", "sac_row_count"])
+        for timestamp, row_count in counts.items():
+            writer.writerow([timestamp, row_count])
+
+    return index_path, len(counts)
+
+
 def write_inventory_metadata(config: Any) -> Path:
     root = inventory_root(config)
     root.mkdir(parents=True, exist_ok=True)
@@ -164,6 +209,7 @@ def write_inventory_metadata(config: Any) -> Path:
         pass
 
     sac_index = ensure_sac_index(root)
+    timestamp_index = ensure_timestamp_index(root)
     allowed_paths = root / "path_plan" / "allowed_paths.tsv"
     nsl_catalog = root / "path_plan" / "nsl_catalog.tsv"
     metadata = {
@@ -175,6 +221,10 @@ def write_inventory_metadata(config: Any) -> Path:
         "sac_index": {
             "path": str(sac_index),
             "row_count": _count_data_rows(sac_index),
+        },
+        "timestamp_index": {
+            "path": str(timestamp_index),
+            "timestamp_count": _count_data_rows(timestamp_index),
         },
         "path_plan": {
             "allowed_paths": str(allowed_paths),
@@ -198,6 +248,9 @@ def _clean_generated_manifests(manifest_dir: Path) -> None:
     index_path = manifest_dir / "sac_index.tsv"
     if index_path.exists():
         index_path.unlink()
+    timestamp_index = manifest_dir / "timestamp_index.tsv"
+    if timestamp_index.exists():
+        timestamp_index.unlink()
 
 
 def _timestamp_manifest_paths(root: Path) -> list[Path]:

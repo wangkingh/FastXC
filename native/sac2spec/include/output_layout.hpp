@@ -6,8 +6,8 @@
 typedef struct OutputLayout
 {
     std::string root;
-    std::string spack_root;
-    std::string spack_success_file;
+    std::string stepack_root;
+    std::string stepack_success_file;
     std::string progress_dir;
     std::string progress_file;
 } OutputLayout;

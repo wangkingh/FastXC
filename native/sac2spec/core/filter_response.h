@@ -23,7 +23,7 @@ typedef struct FilterResp
 ButterworthFilter *readButterworthFilters(const char *filepath, int *filterCount);
 
 FilterResp *processButterworthFilters(ButterworthFilter *filters, int filterCount,
-                                      float df_2x, int nseg_2x);
+                                      float df, int nfft);
 
 int estimateButterworthFilterPadding(const ButterworthFilter *filters,
                                      int filterCount, int maxPadding);

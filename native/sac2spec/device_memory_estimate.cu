@@ -73,7 +73,7 @@ typedef struct DeviceMemoryBreakdown
     size_t tmp_size;
     size_t filtered_sacdata_size;
     size_t total_sacdata_size;
-    size_t base_spectrum_2x_size;
+    size_t base_padded_spectrum_size;
     size_t whiten_norm_size;
     size_t per_batch_total_size;
     size_t work_nfft_size;
@@ -109,11 +109,11 @@ static void ComputeDeviceMemoryBreakdown(int nseg, int filter_nfft, int output_n
         {
             m->filtered_sacdata_size = channel_count * nseg_size * sizeof(float);
             m->total_sacdata_size = channel_count * nseg_size * sizeof(float);
-            m->base_spectrum_2x_size = channel_count * filter_nfft_size * sizeof(cuComplex);
+            m->base_padded_spectrum_size = channel_count * filter_nfft_size * sizeof(cuComplex);
         }
         m->whiten_norm_size = m->weight_size + m->tmp_weight_size + m->tmp_size
                               + m->filtered_sacdata_size + m->total_sacdata_size
-                              + m->base_spectrum_2x_size;
+                              + m->base_padded_spectrum_size;
     }
     else if (wh_flag)
     {
@@ -250,7 +250,7 @@ size_t EstimateGpuFrameBatch(size_t gpu_id, int nseg, int filter_nfft,
              DeviceMemoryBytesToMiB(mem.per_batch_total_size),
              wh_flag, runabs_flag, runabs_mf_flag);
     LOG_INFO("gpu_memory_estimate_arrays",
-             "device=%zu d_sacdata_mib=%.3f d_spectrum_mib=%.3f d_sacdata_2x_mib=%.3f d_spectrum_2x_mib=%.3f d_sum_isum_mib=%.3f d_weight_mib=%.3f d_tmp_weight_mib=%.3f d_tmp_mib=%.3f d_filtered_sacdata_mib=%.3f d_total_sacdata_mib=%.3f d_base_spectrum_2x_mib=%.3f",
+             "device=%zu d_sacdata_mib=%.3f d_spectrum_mib=%.3f d_padded_sacdata_mib=%.3f d_padded_spectrum_mib=%.3f d_sum_isum_mib=%.3f d_weight_mib=%.3f d_tmp_weight_mib=%.3f d_tmp_mib=%.3f d_filtered_sacdata_mib=%.3f d_total_sacdata_mib=%.3f d_base_padded_spectrum_mib=%.3f",
              gpu_id,
              DeviceMemoryBytesToMiB(mem.sac_seg_size),
              DeviceMemoryBytesToMiB(mem.spec_seg_size),
@@ -262,7 +262,7 @@ size_t EstimateGpuFrameBatch(size_t gpu_id, int nseg, int filter_nfft,
              DeviceMemoryBytesToMiB(mem.tmp_size),
              DeviceMemoryBytesToMiB(mem.filtered_sacdata_size),
              DeviceMemoryBytesToMiB(mem.total_sacdata_size),
-             DeviceMemoryBytesToMiB(mem.base_spectrum_2x_size));
+             DeviceMemoryBytesToMiB(mem.base_padded_spectrum_size));
 
     if (availram <= mem.fixed_filter_size || mem.per_batch_total_size == 0)
     {

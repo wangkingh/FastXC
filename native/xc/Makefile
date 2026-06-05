@@ -28,7 +28,6 @@ OBJS = \
     logger.o \
     io/sacio.o \
     io/path_table.o \
-    io/my_write_sac.o \
     io/fs.o \
     io/sac_header.o
 
@@ -52,7 +51,6 @@ $(PROG): $(OBJS) $(CUDAOBJS)
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
 arguproc.o cuda.main.o memory/memory.o io/input.o: arguproc.h
-arguproc.o cuda.main.o io/writer.o: include/write_mode.h
 cuda.main.o worker/async_workers.o memory/memory.o: memory/memory.hpp
 cuda.main.o worker/async_workers.o worker/executor.o worker/scheduler.o memory/memory.o io/input.o io/sac_record.o io/writer.o: runtime.hpp
 cuda.main.o worker/async_workers.o worker/scheduler.o: worker/scheduler.hpp
@@ -65,10 +63,9 @@ io/sac_record.o io/writer.o: io/sac_record.hpp
 cuda.main.o io/sac_record.o io/writer.o pack_io/pack_writer.o: pack_io/pack_writer.hpp
 pack_io/pack_writer.o io/sac_record.o io/writer.o: io/fs.h
 cuda.main.o io/path_table.o worker/scheduler.o: io/path_table.h
-io/writer.o io/my_write_sac.o: io/my_write_sac.h
 io/writer.o io/fs.o: io/fs.h
 io/sac_record.o io/writer.o io/sac_header.o: io/sac_header.h
-arguproc.o cuda.main.o io/input.o memory/memory.o io/path_table.o io/sacio.o io/my_write_sac.o io/writer.o worker/async_workers.o: include/logger.h
+arguproc.o cuda.main.o io/input.o memory/memory.o io/path_table.o io/sacio.o io/writer.o worker/async_workers.o: include/logger.h
 cuda.main.o io/writer.o: progress_sidecar.hpp
 
 clean:

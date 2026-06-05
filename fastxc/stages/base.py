@@ -37,7 +37,6 @@ MODE_ALIASES = {
 PREPARE_STEPS = ("GenerateFilter", "PrepareInventory")
 COMPUTE_STEPS = (
     "Sac2Spec",
-    "XCache",
     "CrossCorrelation",
     "SourcePack",
     "LinearStack",
@@ -52,8 +51,6 @@ COMPUTE_STEPS = (
 class StageContext:
     cfg: Config
     async_sourcepack_result: object | None = None
-    async_xcache_result: object | None = None
-    async_spack_sweep_result: object | None = None
 
 
 class Stage(Protocol):

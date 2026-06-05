@@ -20,7 +20,6 @@
 extern "C"
 {
 #include "arguproc.h"
-#include "include/write_mode.h"
 #include "path_table.h"
 }
 
@@ -51,21 +50,6 @@ struct TimestampRunState
   size_t timestamp_units = 0;
   bool queue_ready = false;
 };
-
-static const char *write_mode_name(int write_mode)
-{
-  switch (write_mode)
-  {
-  case MODE_APPEND:
-    return "append";
-  case MODE_AGGREGATE:
-    return "aggregate";
-  case MODE_PACK:
-    return "pack";
-  default:
-    return "unknown";
-  }
-}
 
 static void stop_resident_workers(XcRunState *run)
 {
@@ -110,7 +94,7 @@ static int prepare_paths_and_output(XcRunState *run)
               run->args.ncf_dir, strerror(errno));
     return -1;
   }
-  if (run->args.write_mode == MODE_PACK && xc_pack_prepare_root(run->args.ncf_dir) != 0)
+  if (xc_pack_prepare_root(run->args.ncf_dir) != 0)
     return -1;
   return 0;
 }
@@ -173,9 +157,8 @@ static int load_inputs_and_shape(XcRunState *run)
   run->timestamp_inputs = load_timestamp_inputs(&run->args);
   if (run->timestamp_inputs.empty())
   {
-    LOG_ERROR("timestamp_input_empty", "index=\"%s\" single=\"%s\"",
-              run->args.timestamp_index_path ? run->args.timestamp_index_path : "",
-              run->args.single_timestamp_path ? run->args.single_timestamp_path : "");
+    LOG_ERROR("timestamp_input_empty", "input=\"%s\"",
+              run->args.input_path ? run->args.input_path : "");
     return -1;
   }
 
@@ -194,7 +177,7 @@ static int load_inputs_and_shape(XcRunState *run)
   }
 
   LOG_INFO("runtime_shape",
-           "nspec=%d nstep=%d nfft=%d dt=%g df=%g num_ch=%zu cc_size=%d source_step_mib=%.3f full_spec_mib=%.3f files_first=%zu",
+           "nspec=%d nstep=%d nfft=%d dt=%g df=%g num_ch=%zu cc_size=%d nslc_step_mib=%.3f full_spec_mib=%.3f files_first=%zu",
            run->shape.nspec, run->shape.nstep, run->shape.nfft,
            run->shape.dt, run->shape.df, run->shape.num_channels,
            run->shape.cc_size, bytes_to_mib(run->shape.step_bytes),
@@ -238,7 +221,7 @@ static int plan_gpu_workers(XcRunState *run)
       run->global_block_size > max_file_count_hint)
   {
     LOG_INFO("worker_plan_file_count_cap",
-             "estimated_block_files=%zu max_timestamp_files=%zu source=file_count_hint",
+             "estimated_block_files=%zu max_timestamp_files=%zu hint=file_count_hint",
              run->global_block_size, max_file_count_hint);
     run->global_block_size = max_file_count_hint;
   }
@@ -251,10 +234,6 @@ static int plan_gpu_workers(XcRunState *run)
     return -1;
   }
 
-  const size_t writer_threads =
-      std::max((size_t)1, run->args.cpu_count / std::max((size_t)1, run->args.gpu_count));
-  const size_t effective_writer_threads =
-      run->args.write_mode == MODE_PACK ? (size_t)1 : writer_threads;
   run->worker_cfgs.clear();
   run->worker_cfgs.reserve(run->args.gpu_count);
   for (size_t i = 0; i < run->args.gpu_count; ++i)
@@ -264,8 +243,6 @@ static int plan_gpu_workers(XcRunState *run)
     cfg.gpu_id = run->args.gpu_ids[i];
     cfg.block_file_count = run->global_block_size;
     cfg.pair_capacity = run->global_pair_capacity;
-    cfg.writer_threads = effective_writer_threads;
-    cfg.write_mode = run->args.write_mode;
     cfg.lazy_write_depth = run->args.lazy_write_depth;
     cfg.output_dir = run->args.ncf_dir;
     cfg.progress = &run->progress;
@@ -273,10 +250,9 @@ static int plan_gpu_workers(XcRunState *run)
   }
 
   LOG_INFO("worker_plan",
-           "global_block_files=%zu max_pair_capacity=%zu gpu_workers=%zu writer_threads_per_worker=%zu lazy_write_depth=%zu write_mode=%s",
+           "global_block_files=%zu max_pair_capacity=%zu gpu_workers=%zu lazy_write_depth=%zu output_mode=xcpack",
            run->global_block_size, run->global_pair_capacity,
-           run->args.gpu_count, effective_writer_threads, run->args.lazy_write_depth,
-           write_mode_name(run->args.write_mode));
+           run->args.gpu_count, run->args.lazy_write_depth);
   return 0;
 }
 
@@ -298,9 +274,9 @@ static bool prepare_timestamp_run(XcRunState *run,
   if (open_timestamp_work(run->timestamp_inputs[ts], &timestamp->work,
                           &run->shape, &check_shape) != 0)
   {
-    LOG_WARN("timestamp_open_failed", "timestamp=\"%s\" xcspec=\"%s\"",
+    LOG_WARN("timestamp_open_failed", "timestamp=\"%s\" input=\"%s\"",
              run->timestamp_inputs[ts].timestamp.c_str(),
-             run->timestamp_inputs[ts].xcspec_path.c_str());
+             run->timestamp_inputs[ts].input_pack_path.c_str());
     mark_timestamp_skipped(run, ts);
     return false;
   }
@@ -369,10 +345,9 @@ int main(int argc, char **argv)
 {
   XcRunState run;
   ArgumentProcess(argc, argv, &run.args);
-  LOG_INFO("run_start", "gpu_workers=%zu output=\"%s\" progress=\"%s\" write_mode=%s",
+  LOG_INFO("run_start", "gpu_workers=%zu output=\"%s\" progress=\"%s\" output_mode=xcpack",
            run.args.gpu_count, run.args.ncf_dir,
-           run.args.progress_file ? run.args.progress_file : "",
-           write_mode_name(run.args.write_mode));
+           run.args.progress_file ? run.args.progress_file : "");
 
   if (prepare_paths_and_output(&run) != 0 ||
       load_inputs_and_shape(&run) != 0)
@@ -416,8 +391,7 @@ int main(int argc, char **argv)
       break;
     }
 
-    if (run.args.write_mode == MODE_PACK &&
-        xc_pack_write_timestamp_done_for_output(run.args.ncf_dir,
+    if (xc_pack_write_timestamp_done_for_output(run.args.ncf_dir,
                                                 timestamp.work.timestamp.c_str()) != 0)
     {
       LOG_ERROR("xcpack_timestamp_done_failed", "timestamp=\"%s\" output=\"%s\"",
@@ -432,8 +406,7 @@ int main(int argc, char **argv)
              ts, timestamp.work.timestamp.c_str());
   }
 
-  if (exit_code == 0 && run.args.write_mode == MODE_PACK &&
-      xc_pack_write_success_for_output(run.args.ncf_dir) != 0)
+  if (exit_code == 0 && xc_pack_write_success_for_output(run.args.ncf_dir) != 0)
   {
     LOG_ERROR("xcpack_success_marker_failed", "output=\"%s\"", run.args.ncf_dir);
     exit_code = 1;

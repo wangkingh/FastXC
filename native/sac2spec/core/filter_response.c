@@ -183,14 +183,14 @@ ButterworthFilter *readButterworthFilters(const char *filepath, int *filterCount
     return filters;
 }
 
-static void calFilterPowerResp(const double *b, const double *a, int nseg_2x, float *response)
+static void calFilterPowerResp(const double *b, const double *a, int nfft, float *response)
 {
-    if (b == NULL || a == NULL || response == NULL || nseg_2x <= 0)
+    if (b == NULL || a == NULL || response == NULL || nfft <= 0)
     {
         return;
     }
 
-    int half = nseg_2x / 2;
+    int half = nfft / 2;
     if (half <= 0)
     {
         return;
@@ -232,12 +232,12 @@ static void calFilterPowerResp(const double *b, const double *a, int nseg_2x, fl
     }
 }
 
-FilterResp *processButterworthFilters(ButterworthFilter *filters, int filterCount, float df_2x, int nseg_2x)
+FilterResp *processButterworthFilters(ButterworthFilter *filters, int filterCount, float df, int nfft)
 {
-    (void)df_2x;
-    if (filters == NULL || filterCount <= 0 || nseg_2x <= 0)
+    (void)df;
+    if (filters == NULL || filterCount <= 0 || nfft <= 0)
     {
-        LOG_ERROR("filter_response_invalid_input", "filter_count=%d nfft=%d", filterCount, nseg_2x);
+        LOG_ERROR("filter_response_invalid_input", "filter_count=%d nfft=%d", filterCount, nfft);
         return NULL;
     }
 
@@ -251,10 +251,10 @@ FilterResp *processButterworthFilters(ButterworthFilter *filters, int filterCoun
     for (int i = 0; i < filterCount; i++)
     {
         responses[i].freq_low = filters[i].freq_low;
-        responses[i].response = (float *)calloc((size_t)nseg_2x, sizeof(float));
+        responses[i].response = (float *)calloc((size_t)nfft, sizeof(float));
         if (responses[i].response == NULL)
         {
-            LOG_ERROR("alloc_failed", "target=filter_response index=%d nfft=%d", i, nseg_2x);
+            LOG_ERROR("alloc_failed", "target=filter_response index=%d nfft=%d", i, nfft);
             for (int j = 0; j < i; j++)
             {
                 free(responses[j].response);
@@ -263,7 +263,7 @@ FilterResp *processButterworthFilters(ButterworthFilter *filters, int filterCoun
             return NULL;
         }
 
-        calFilterPowerResp(filters[i].b, filters[i].a, nseg_2x, responses[i].response);
+        calFilterPowerResp(filters[i].b, filters[i].a, nfft, responses[i].response);
     }
 
     return responses;

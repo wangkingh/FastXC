@@ -1,6 +1,8 @@
 #include "spectrum.cuh"
+#include "smoothing.cuh"
 
-#include "../kernels/misc.cuh"
+#include "../kernels/complex_matrix.cuh"
+#include "../kernels/real_matrix.cuh"
 #include "../kernels/taper.cuh"
 #include "cuda.util.cuh"
 
@@ -249,8 +251,8 @@ int freq_whiten(cuComplex *d_spectrum,
             return -1;
         }
 
-        LaunchSmooth2D(d_tmp_weight, pitch, d_weight, pitch,
-                       (int)fwidth, frame_count, winsize);
+        launch_smooth_rows(d_tmp_weight, pitch, d_weight, pitch,
+                           (int)fwidth, frame_count, winsize);
         if (kernelOk("freq_whiten_smooth") != 0)
         {
             return -1;

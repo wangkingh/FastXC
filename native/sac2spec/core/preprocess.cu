@@ -1,6 +1,6 @@
 #include "preprocess.cuh"
 
-#include "../kernels/misc.cuh"
+#include "../kernels/real_matrix.cuh"
 #include "../kernels/rdcrtr.cuh"
 #include "../kernels/taper.cuh"
 #include "cuda.util.cuh"

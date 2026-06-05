@@ -34,7 +34,7 @@ int TimestampTrackerInit(TimestampTracker *tracker,
                          const SacIndexMetaArray *meta,
                          int num_ch,
                          size_t total_groups,
-                         const char *spack_root);
+                         const char *stepack_root);
 int TimestampTrackerMarkBatchDone(TimestampTracker *tracker,
                                   size_t start_group,
                                   size_t group_count);

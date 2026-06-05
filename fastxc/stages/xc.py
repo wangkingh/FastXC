@@ -23,7 +23,7 @@ class CrossCorrelationStage:
         commands: list[str] = []
         if wants_command(mode) or wants_deploy(mode):
             commands = gen_xc_cmd(
-                xcspec_index_file=out / "xcache" / "xcspec_index.tsv",
+                xc_input_path=out / "stepack",
                 allowed_paths_file=out / "path_plan" / "allowed_paths.tsv",
                 output_dir=out,
                 xc_exe=cfg.executables.xc,
@@ -31,12 +31,13 @@ class CrossCorrelationStage:
                 cclength=cfg.xcorr.max_lag,
                 gpu_ids=cfg.device.gpu_list,
                 gpu_memory_mib=cfg.device.gpu_memory_mib,
-                cpu_workers=cfg.device.cpu_workers,
                 debug_mode=cfg.debug.debug,
             )
         if wants_deploy(mode):
             materializer = _start_sourcepack_materializer(ctx, modes.get("SourcePack"))
             side_progress = _side_progress_files(materializer)
+            xc_failed: BaseException | None = None
+            xc_succeeded = False
             try:
                 xc_deployer(
                     commands,
@@ -45,9 +46,22 @@ class CrossCorrelationStage:
                     cfg.debug.dry_run,
                     side_progress_files=side_progress,
                 )
+                xc_succeeded = True
+            except BaseException as exc:
+                xc_failed = exc
+                raise
             finally:
                 if materializer is not None:
-                    ctx.async_sourcepack_result = materializer.finish()
+                    try:
+                        ctx.async_sourcepack_result = materializer.finish(
+                            mark_success=xc_succeeded,
+                        )
+                    except BaseException:
+                        if xc_failed is None:
+                            raise
+                        logger.exception(
+                            "Async SourcePack finalization failed after XC failed; preserving XC exception."
+                        )
             stage_done("Cross-correlation finished.")
 
 

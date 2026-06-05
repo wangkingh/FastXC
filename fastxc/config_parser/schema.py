@@ -301,46 +301,7 @@ class Xcorr:
 
 
 # ---------------------------------------------------------------------- #
-# 3b. XCache
-# ---------------------------------------------------------------------- #
-@dataclass
-class XCache:
-    windows_per_xcache: int | None = None
-    async_after_sac2spec: bool = True
-    async_poll_sec: float = 5.0
-    cleanup_timestamp_spack: bool = True
-
-    @classmethod
-    def from_cfg(cls, g: Mapping[str, str]) -> "XCache":
-        value = str(g.get("windows_per_xcache", g.get("windows_per_shard", "AUTO"))).strip()
-        async_after_sac2spec = _as_bool(g.get("async_after_sac2spec", True))
-        async_poll_sec = float(g.get("async_poll_sec", 5.0))
-        cleanup_timestamp_spack = _as_bool(g.get("cleanup_timestamp_spack", True))
-        if value.upper() in {"", "AUTO", "NONE"}:
-            return cls(
-                windows_per_xcache=None,
-                async_after_sac2spec=async_after_sac2spec,
-                async_poll_sec=async_poll_sec,
-                cleanup_timestamp_spack=cleanup_timestamp_spack,
-            )
-        return cls(
-            windows_per_xcache=int(value),
-            async_after_sac2spec=async_after_sac2spec,
-            async_poll_sec=async_poll_sec,
-            cleanup_timestamp_spack=cleanup_timestamp_spack,
-        )
-
-    def validate(self) -> None:
-        if self.windows_per_xcache is not None and self.windows_per_xcache < 1:
-            raise ValueError("windows_per_xcache must be AUTO or a positive integer")
-        if self.async_poll_sec <= 0:
-            raise ValueError("xcache async_poll_sec must be > 0")
-
-    def to_dict(self): return asdict(self)
-
-
-# ---------------------------------------------------------------------- #
-# 3c. SourcePack
+# 3b. SourcePack
 # ---------------------------------------------------------------------- #
 @dataclass
 class SourcePack:

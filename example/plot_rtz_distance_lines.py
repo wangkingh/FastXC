@@ -39,6 +39,8 @@ def main() -> None:
     parser.add_argument("--pairs", default="ZZ,ZR,RZ", help="component pairs to overlay, e.g. ZZ,ZR,RZ or Z-Z,Z-R,R-Z")
     parser.add_argument("--lag-window", type=float, default=20.0, help="half window in seconds around zero lag; 0 disables cropping")
     parser.add_argument("--scale", type=float, default=0.0, help="amplitude scale in km; 0 means auto")
+    parser.add_argument("--max-pairs", type=int, default=0, help="maximum station-pair paths to draw; 0 draws all")
+    parser.add_argument("--sample-stride", type=int, default=1, help="draw every Nth station-pair path after sorting by distance")
     parser.add_argument("--linewidth", type=float, default=0.65, help="trace line width")
     args = parser.parse_args()
 
@@ -63,9 +65,16 @@ def main() -> None:
 
     rows = read_rows(index)
     pairs = parse_pairs(args.pairs)
+    rows, total_paths, selected_paths = sample_rows(
+        rows,
+        pairs,
+        max_pairs=args.max_pairs,
+        sample_stride=args.sample_stride,
+    )
     traces = load_rtz_traces(rows, pairs)
     plot_rtz_lines(traces, pairs, title, output, lag_window=args.lag_window, scale=args.scale, linewidth=args.linewidth)
     print(f"Wrote {output}")
+    print(f"Plotted {selected_paths}/{total_paths} station-pair paths")
 
 
 def read_rows(index_path: Path) -> list[dict[str, str]]:
@@ -108,6 +117,42 @@ def parse_pairs(value: str) -> tuple[tuple[str, str], ...]:
 
 def pair_label(pair: tuple[str, str]) -> str:
     return f"{pair[0]}{pair[1]}"
+
+
+def sample_rows(
+    rows: list[dict[str, str]],
+    pairs: tuple[tuple[str, str], ...],
+    *,
+    max_pairs: int,
+    sample_stride: int,
+) -> tuple[list[dict[str, str]], int, int]:
+    if max_pairs < 0:
+        raise ValueError("--max-pairs must be >= 0")
+    if sample_stride < 1:
+        raise ValueError("--sample-stride must be >= 1")
+
+    wanted_pairs = set(pairs)
+    path_distances: dict[str, float] = {}
+    for row in rows:
+        if (row["src_component"], row["rec_component"]) not in wanted_pairs:
+            continue
+        path_id = row.get("path_id")
+        if not path_id:
+            raise ValueError("RTZ index is missing path_id; cannot sample by station pair")
+        path_distances.setdefault(path_id, float(row["dist"]))
+
+    ordered_paths = sorted(path_distances.items(), key=lambda item: (item[1], item[0]))
+    total_paths = len(ordered_paths)
+    if sample_stride > 1:
+        ordered_paths = ordered_paths[::sample_stride]
+    if max_pairs > 0 and len(ordered_paths) > max_pairs:
+        indexes = np.linspace(0, len(ordered_paths) - 1, max_pairs)
+        ordered_paths = [ordered_paths[int(round(index))] for index in indexes]
+
+    selected_ids = {path_id for path_id, _ in ordered_paths}
+    if not selected_ids:
+        raise ValueError("Sampling removed all station pairs")
+    return [row for row in rows if row.get("path_id") in selected_ids], total_paths, len(selected_ids)
 
 
 def load_rtz_traces(
@@ -202,7 +247,7 @@ def auto_scale_km(distances: np.ndarray) -> float:
         diffs = np.diff(np.sort(unique))
         diffs = diffs[diffs > 0]
         if diffs.size:
-            return max(float(np.median(diffs)) * 0.38, 0.05)
+            return max(float(np.median(diffs)) * 0.65, 0.08)
     if unique.size == 1:
         return max(abs(float(unique[0])) * 0.06, 0.5)
     return 1.0

@@ -435,14 +435,14 @@ void usage(void)
         "\n"
         "Required arguments\n"
         "  -I FILE            Input SAC index TSV\n"
-        "  -O DIR             Output workspace; creates DIR/spack_by_timestamp and DIR/progress\n"
+        "  -O DIR             Output workspace; creates DIR/stepack and DIR/progress\n"
         "  -L A/B/C/D         SAC file length, segment window, segment shift, and NCF lag in seconds\n"
         "                     SAC data is truncated or zero-padded to A using the checked SAC delta\n"
         "  -B FILE            Butterworth filter-coefficient file; first band is the broad band\n"
         "\n"
         "Generated files\n"
         "                     Progress is written to <output_root>/progress/sac2spec_progress.tsv\n"
-        "                     Writes timestamp-local 4GiB worker shard .spack parts\n"
+        "                     Writes one pitched stepack file and TSV sidecar per worker batch\n"
         "\n"
         "Processing options\n"
         "  -C INT             Number of channels per NSL/timestamp group (default: 3)\n"
@@ -474,6 +474,6 @@ void usage(void)
         "  sac2spec -I sac_index.tsv -O output -L 86400/7200/7200/100 -C 3 \\\n"
         "          -W 1/0 -N 1 -B filter.txt -G 0,0 -T 2 -M 4096,4096\n"
         "\n"
-        "Spack path:   <output_root>/spack_by_timestamp/<timestamp>/w<worker_id>.p<part_id>.spack and matching .tsv\n"
-        "Spack record: raw SEGSPEC header followed by complex spectrum payload\n");
+        "Stepack path: <output_root>/stepack/w<worker_id>.b<batch_seq>.stepack and matching .tsv\n"
+        "Stepack file: batch header + NSLC table + pitched [step][batch_nslc][freq] complex payload\n");
 }

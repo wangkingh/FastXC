@@ -62,10 +62,7 @@ distance_range = 10/20
 azimuth_range = 30/40
 group_pair_mode = inter
 autocorr_mode = only
-windows_per_xcache = 12
-xcache_async_after_sac2spec = False
 async_poll_sec = 3
-xcache_cleanup_timestamp_spack = False
 sourcepack_async_after_xc = False
 pre_stack_size = 7
 tfpws_band = 0.1/0.3
@@ -87,10 +84,6 @@ unpack_target = STACK
         self.assertEqual(cfg.xcorr.autocorr_mode, "only")
         self.assertEqual(cfg.stack.stack_flag, "111")
         self.assertEqual(cfg.stack.pre_stack_size, 7)
-        self.assertEqual(cfg.xcache.windows_per_xcache, 12)
-        self.assertFalse(cfg.xcache.async_after_sac2spec)
-        self.assertEqual(cfg.xcache.async_poll_sec, 3)
-        self.assertFalse(cfg.xcache.cleanup_timestamp_spack)
         self.assertTrue(cfg.sourcepack.sort_within_source)
         self.assertFalse(cfg.sourcepack.async_after_xc)
         self.assertEqual(cfg.sourcepack.async_poll_sec, 3)
@@ -221,7 +214,7 @@ gpu_list = 0
 cpu_workers = 1
 
 [advance.compute]
-sourcepack_enabled = True
+windows_per_xcache = AUTO
 """,
             )
 

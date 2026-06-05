@@ -170,7 +170,7 @@ A7K2	38.499907	-98.603619	0	KS	00
 
 ## `[advance.compute]`
 
-高级计算参数集中在这一段，包括路径筛选、xcache、SourcePack 和 PWS/TF-PWS
+高级计算参数集中在这一段，包括路径筛选、SourcePack 和 PWS/TF-PWS
 调优。普通示例一般保持默认即可。
 
 | 字段 | 说明 |
@@ -181,10 +181,7 @@ A7K2	38.499907	-98.603619	0	KS	00
 | `azimuth_range` | 允许方位角范围，格式 `min/max`，单位度。 |
 | `group_pair_mode` | 组间规则：`intra` 仅同组，`inter` 仅不同组，`all` 同组和组间都计算。 |
 | `autocorr_mode` | 自相关路径控制：`off` 关闭自相关，`include` 在普通台站对外加入自相关，`only` 只保留自相关。 |
-| `windows_per_xcache` | 每个 xcache shard 包含的窗口数；`AUTO` 表示按时间片集中写入。 |
-| `xcache_async_after_sac2spec` | SAC2SPEC 每完成一个时间片就异步构建 xcache。 |
-| `async_poll_sec` | 所有异步任务的轮询间隔，单位秒；包括 xcache、spack 清理和 SourcePack。 |
-| `xcache_cleanup_timestamp_spack` | xcache 完成后删除对应 `spack_by_timestamp/<timestamp>`，节省空间。 |
+| `async_poll_sec` | 异步任务轮询间隔，单位秒；目前主要用于 XC 后的 SourcePack 后台整理。 |
 | `sourcepack_async_after_xc` | XC 每完成一个时间片就异步构建 SourcePack。 |
 | `pre_stack_size` | 预叠加大小，主要影响 PWS/TF-PWS。 |
 | `tfpws_band` | TF-PWS 权重频带；`FULL` 表示全频段。 |

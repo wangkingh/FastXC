@@ -12,7 +12,7 @@ typedef struct InOutNode InOutNode;
 typedef struct Sac2SpecPlan Sac2SpecPlan;
 typedef struct TaskQueue TaskQueue;
 typedef struct ThreadPoolRead ThreadPoolRead;
-typedef struct SpackWriter SpackWriter;
+typedef struct StepackWriter StepackWriter;
 
 typedef struct WorkerCapacityPlan
 {
@@ -48,15 +48,15 @@ typedef struct GpuWorker
     int host_slot_count;
 
     ThreadPoolRead *read_pool;
-    SpackWriter *spack_writer;
+    StepackWriter *stepack_writer;
 
     float *d_sacdata;
-    float *d_sacdata_2x;
+    float *d_padded_sacdata;
     float *d_filtered_sacdata;
     float *d_total_sacdata;
     cuComplex *d_spectrum;
-    cuComplex *d_spectrum_2x;
-    cuComplex *d_base_spectrum_2x;
+    cuComplex *d_padded_spectrum;
+    cuComplex *d_base_padded_spectrum;
     float *d_weight;
     float *d_tmp;
     float *d_tmp_weight;
@@ -87,6 +87,7 @@ typedef struct WorkerBatch
 {
     GpuWorker *worker;
     WorkerHostSlot *slot;
+    size_t batch_seq;
     size_t start_group;
     size_t group_count;
     size_t file_rows;

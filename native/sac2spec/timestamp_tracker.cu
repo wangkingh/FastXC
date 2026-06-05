@@ -52,7 +52,7 @@ static int writeTimestampSuccess(const TimestampTracker *tracker,
         free(success_path);
         return -1;
     }
-    LOG_INFO("timestamp_spack_done",
+    LOG_INFO("timestamp_stepack_done",
              "timestamp=%s groups=%zu path=\"%s\"",
              entry->timestamp, entry->group_count, success_path);
     free(success_path);
@@ -77,20 +77,20 @@ int TimestampTrackerInit(TimestampTracker *tracker,
                          const SacIndexMetaArray *meta,
                          int num_ch,
                          size_t total_groups,
-                         const char *spack_root)
+                         const char *stepack_root)
 {
     if (tracker == NULL || meta == NULL || meta->values == NULL ||
-        num_ch < 1 || total_groups < 1 || spack_root == NULL)
+        num_ch < 1 || total_groups < 1 || stepack_root == NULL)
     {
         LOG_ERROR("timestamp_tracker_invalid_input",
-                  "tracker=%p meta=%p num_ch=%d total_groups=%zu spack_root=%p",
+                  "tracker=%p meta=%p num_ch=%d total_groups=%zu stepack_root=%p",
                   (void *)tracker, (void *)meta, num_ch, total_groups,
-                  (const void *)spack_root);
+                  (const void *)stepack_root);
         return -1;
     }
 
     memset(tracker, 0, sizeof(*tracker));
-    tracker->root = PathStringDup(spack_root);
+    tracker->root = PathStringDup(stepack_root);
     tracker->entries = (TimestampTrackerEntry *)calloc(total_groups, sizeof(TimestampTrackerEntry));
     tracker->group_to_entry = (int *)malloc(total_groups * sizeof(int));
     if (tracker->root == NULL || tracker->entries == NULL || tracker->group_to_entry == NULL)

@@ -12,136 +12,88 @@
 #include <pthread.h>
 #include <vector>
 
-extern "C"
+static void write_results_pack(const WorkerConfig *cfg,
+                               const RuntimeShape *shape,
+                               const TimestampWork *timestamp,
+                               const RowBatchJob *job,
+                               const std::vector<XcTask> &tasks,
+                               const float *cc)
 {
-#include "my_write_sac.h"
-}
+  if (tasks.empty())
+    return;
 
-static void *write_thread_main(void *arg)
-{
-  WriteContext *ctx = (WriteContext *)arg;
   XcTimeData tinfo;
   XcPackWriter pack_writer;
   std::vector<char> pack_record;
-  bool pack_open = false;
 
-  if (!parse_timestamp_text(ctx->timestamp->timestamp, &tinfo))
+  if (!parse_timestamp_text(timestamp->timestamp, &tinfo))
   {
     LOG_WARN("timestamp_parse_failed",
              "timestamp=\"%s\" worker=%zu action=use_zero_sac_time",
-             ctx->timestamp->timestamp.c_str(), ctx->cfg->worker_id);
+             timestamp->timestamp.c_str(), cfg->worker_id);
   }
-  if (ctx->cfg->write_mode == MODE_PACK)
+  std::string pack_root = xc_pack_root_dir(cfg->output_dir);
+  if (xc_pack_writer_open(&pack_writer,
+                          pack_root.c_str(),
+                          timestamp->timestamp.c_str(),
+                          cfg->worker_id,
+                          job,
+                          kXcPackDefaultMaxBytes) != 0)
   {
-    std::string pack_root = xc_pack_root_dir(ctx->cfg->output_dir);
-    if (xc_pack_writer_open(&pack_writer,
-                            pack_root.c_str(),
-                            ctx->timestamp->timestamp.c_str(),
-                            ctx->cfg->worker_id,
-                            ctx->job,
-                            kXcPackDefaultMaxBytes) != 0)
-    {
-      LOG_ERROR("xcpack_writer_open_failed",
-                "worker=%zu block_i=%zu block_j=%zu timestamp=\"%s\" root=\"%s\"",
-                ctx->cfg->worker_id,
-                ctx->job ? ctx->job->anchor_block : 0,
-                ctx->job ? ctx->job->target_begin_block : 0,
-                ctx->timestamp->timestamp.c_str(), pack_root.c_str());
-      return NULL;
-    }
-    pack_open = true;
+    LOG_ERROR("xcpack_writer_open_failed",
+              "worker=%zu block_i=%zu block_j=%zu timestamp=\"%s\" root=\"%s\"",
+              cfg->worker_id,
+              job ? job->anchor_block : 0,
+              job ? job->target_begin_block : 0,
+              timestamp->timestamp.c_str(), pack_root.c_str());
+    return;
   }
 
-  for (size_t k = ctx->begin; k < ctx->end; ++k)
+  for (size_t k = 0; k < tasks.size(); ++k)
   {
-    const XcTask &task = (*(ctx->tasks))[k];
-    const SpecMeta &src = ctx->timestamp->specs[task.src_meta_idx];
-    const SpecMeta &rec = ctx->timestamp->specs[task.rec_meta_idx];
+    const XcTask &task = tasks[k];
+    const SpecMeta &src = timestamp->specs[task.src_meta_idx];
+    const SpecMeta &rec = timestamp->specs[task.rec_meta_idx];
     char out_path[PATH_MAX];
-    if (build_output_path(out_path, sizeof(out_path), ctx->cfg->output_dir, src, rec,
-                          ctx->cfg->write_mode != MODE_PACK) != 0)
+    if (build_output_path(out_path, sizeof(out_path), cfg->output_dir, src, rec,
+                          false) != 0)
     {
       LOG_ERROR("output_path_build_failed", "worker=%zu path_id=%08d",
-                ctx->cfg->worker_id, task.path_id);
+                cfg->worker_id, task.path_id);
       continue;
     }
 
     SACHEAD hd;
-    build_sac_header_for_task(&hd, ctx->shape, task, src, rec, &tinfo);
+    build_sac_header_for_task(&hd, shape, task, src, rec, &tinfo);
 
-    const float *trace = ctx->cc + k * (size_t)ctx->shape->cc_size;
-    if (ctx->cfg->write_mode == MODE_PACK)
+    const float *trace = cc + k * (size_t)shape->cc_size;
+    XcPackRecordMeta meta;
+    fill_pack_record_meta(&meta, timestamp, shape, cfg, job,
+                          task, src, rec, out_path);
+    if (make_sac_record(&pack_record, hd, trace, (size_t)shape->cc_size) != 0)
     {
-      XcPackRecordMeta meta;
-      fill_pack_record_meta(&meta, ctx->timestamp, ctx->shape, ctx->cfg, ctx->job,
-                            task, src, rec, out_path);
-      if (make_sac_record(&pack_record, hd, trace, (size_t)ctx->shape->cc_size) != 0)
-      {
-        LOG_ERROR("xcpack_record_build_failed",
-                  "worker=%zu block_i=%zu block_j=%zu path_id=%08d",
-                  ctx->cfg->worker_id,
-                  ctx->job ? ctx->job->anchor_block : 0,
-                  ctx->job ? ctx->job->target_begin_block : 0,
-                  task.path_id);
-        continue;
-      }
-      if (xc_pack_writer_append(&pack_writer, &meta, pack_record.data(),
-                                (uint64_t)pack_record.size()) != 0)
-      {
-        LOG_ERROR("xcpack_record_write_failed",
-                  "worker=%zu block_i=%zu block_j=%zu path_id=%08d timestamp=\"%s\"",
-                  ctx->cfg->worker_id,
-                  ctx->job ? ctx->job->anchor_block : 0,
-                  ctx->job ? ctx->job->target_begin_block : 0,
-                  task.path_id,
-                  ctx->timestamp->timestamp.c_str());
-      }
+      LOG_ERROR("xcpack_record_build_failed",
+                "worker=%zu block_i=%zu block_j=%zu path_id=%08d",
+                cfg->worker_id,
+                job ? job->anchor_block : 0,
+                job ? job->target_begin_block : 0,
+                task.path_id);
+      continue;
     }
-    else if (my_write_sac(out_path, hd, trace, ctx->cfg->write_mode) != 0)
-      LOG_ERROR("sac_write_failed", "worker=%zu path=\"%s\"",
-                ctx->cfg->worker_id, out_path);
+    if (xc_pack_writer_append(&pack_writer, &meta, pack_record.data(),
+                              (uint64_t)pack_record.size()) != 0)
+    {
+      LOG_ERROR("xcpack_record_write_failed",
+                "worker=%zu block_i=%zu block_j=%zu path_id=%08d timestamp=\"%s\"",
+                cfg->worker_id,
+                job ? job->anchor_block : 0,
+                job ? job->target_begin_block : 0,
+                task.path_id,
+                timestamp->timestamp.c_str());
+    }
   }
 
-  if (pack_open)
-    xc_pack_writer_close(&pack_writer);
-  return NULL;
-}
-
-static void write_results_parallel(const WorkerConfig *cfg,
-                                   const RuntimeShape *shape,
-                                   const TimestampWork *timestamp,
-                                   const RowBatchJob *job,
-                                   const std::vector<XcTask> &tasks,
-                                   const float *cc)
-{
-  if (tasks.empty())
-    return;
-  size_t nthreads = cfg->write_mode == MODE_PACK
-                        ? (size_t)1
-                        : std::min(cfg->writer_threads, tasks.size());
-  if (nthreads == 0)
-    return;
-  std::vector<pthread_t> threads(nthreads);
-  std::vector<WriteContext> contexts(nthreads);
-  size_t per = tasks.size() / nthreads;
-  size_t rem = tasks.size() % nthreads;
-  size_t begin = 0;
-  for (size_t i = 0; i < nthreads; ++i)
-  {
-    size_t end = begin + per + (i < rem ? 1 : 0);
-    contexts[i].cfg = cfg;
-    contexts[i].shape = shape;
-    contexts[i].timestamp = timestamp;
-    contexts[i].job = job;
-    contexts[i].tasks = &tasks;
-    contexts[i].cc = cc;
-    contexts[i].begin = begin;
-    contexts[i].end = end;
-    pthread_create(&threads[i], NULL, write_thread_main, &contexts[i]);
-    begin = end;
-  }
-  for (size_t i = 0; i < nthreads; ++i)
-    pthread_join(threads[i], NULL);
+  xc_pack_writer_close(&pack_writer);
 
   if (cfg->progress)
     cfg->progress->add("current", tasks.size(), timestamp->timestamp);
@@ -165,9 +117,9 @@ static void *lazy_writer_main(void *arg)
     queue->pending.pop_front();
     pthread_mutex_unlock(&queue->mutex);
 
-    write_results_parallel(queue->cfg, queue->shape, queue->timestamp,
-                           &batch->job,
-                           batch->tasks, batch->cc.data());
+    write_results_pack(queue->cfg, queue->shape, queue->timestamp,
+                       &batch->job,
+                       batch->tasks, batch->cc.data());
     batch->tasks.clear();
 
     pthread_mutex_lock(&queue->mutex);
@@ -291,7 +243,7 @@ void submit_write_results(LazyWriteQueue *queue,
 {
   if (!queue || !queue->active)
   {
-    write_results_parallel(cfg, shape, timestamp, job, tasks, cc);
+    write_results_pack(cfg, shape, timestamp, job, tasks, cc);
     return;
   }
 

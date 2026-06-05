@@ -56,33 +56,33 @@ int ComputeWorkerBatch(WorkerBatch *batch)
         return -1;
     }
 
-    CUDACHECK(cudaMemset(worker->d_sacdata_2x, 0, plan_cnt * plan->filter_nfft * sizeof(float)));
-    CUDACHECK(cudaMemset(worker->d_spectrum_2x, 0, plan_cnt * plan->filter_nfft * sizeof(cuComplex)));
-    CUDACHECK(cudaMemcpy2D(worker->d_sacdata_2x, plan->filter_nfft * sizeof(float),
+    CUDACHECK(cudaMemset(worker->d_padded_sacdata, 0, plan_cnt * plan->filter_nfft * sizeof(float)));
+    CUDACHECK(cudaMemset(worker->d_padded_spectrum, 0, plan_cnt * plan->filter_nfft * sizeof(cuComplex)));
+    CUDACHECK(cudaMemcpy2D(worker->d_padded_sacdata, plan->filter_nfft * sizeof(float),
                            worker->d_sacdata, plan->segment_pts * sizeof(float),
                            plan->segment_pts * sizeof(float), proc_cnt, cudaMemcpyDeviceToDevice));
-    CUFFTCHECK(cufftExecR2C(worker->planfwd_filter, (cufftReal *)worker->d_sacdata_2x,
-                            (cufftComplex *)worker->d_spectrum_2x));
+    CUFFTCHECK(cufftExecR2C(worker->planfwd_filter, (cufftReal *)worker->d_padded_sacdata,
+                            (cufftComplex *)worker->d_padded_spectrum));
     size_t fwidth_filter = plan->filter_nfft / 2 + 1;
-    if (fft_forward_normalize(worker->d_spectrum_2x, plan->filter_nfft,
+    if (fft_forward_normalize(worker->d_padded_spectrum, plan->filter_nfft,
                                           fwidth_filter, proc_cnt, plan->delta) != 0 ||
-        complex_sanitize(worker->d_spectrum_2x, plan->filter_nfft,
+        complex_sanitize(worker->d_padded_spectrum, plan->filter_nfft,
                                          fwidth_filter, proc_cnt) != 0 ||
-        apply_filter_response(worker->d_spectrum_2x, worker->d_responses,
+        apply_filter_response(worker->d_padded_spectrum, worker->d_responses,
                                               plan->filter_nfft, fwidth_filter, proc_cnt) != 0)
     {
         return -1;
     }
-    CUFFTCHECK(cufftExecC2R(worker->planinv_filter, (cufftComplex *)worker->d_spectrum_2x,
-                            (cufftReal *)worker->d_sacdata_2x));
-    if (fft_inverse_normalize(worker->d_sacdata_2x, plan->filter_nfft,
+    CUFFTCHECK(cufftExecC2R(worker->planinv_filter, (cufftComplex *)worker->d_padded_spectrum,
+                            (cufftReal *)worker->d_padded_sacdata));
+    if (fft_inverse_normalize(worker->d_padded_sacdata, plan->filter_nfft,
                                           plan->filter_nfft, proc_cnt, plan->delta) != 0)
     {
         return -1;
     }
 
     CUDACHECK(cudaMemcpy2D(worker->d_sacdata, plan->segment_pts * sizeof(float),
-                           worker->d_sacdata_2x, plan->filter_nfft * sizeof(float),
+                           worker->d_padded_sacdata, plan->filter_nfft * sizeof(float),
                            plan->segment_pts * sizeof(float), proc_cnt, cudaMemcpyDeviceToDevice));
 
     LOG_INFO("worker_prefilter_done",
@@ -133,8 +133,8 @@ int ComputeWorkerBatch(WorkerBatch *batch)
     {
         if (runabs_mf(worker->d_sacdata, worker->d_filtered_sacdata,
                                       worker->d_total_sacdata,
-                                      worker->d_sacdata_2x, worker->d_spectrum_2x,
-                                      worker->d_base_spectrum_2x,
+                                      worker->d_padded_sacdata, worker->d_padded_spectrum,
+                                      worker->d_base_padded_spectrum,
                                       worker->d_responses, worker->d_tmp,
                                       worker->d_weight, worker->d_tmp_weight,
                                       plan->freq_lows, plan->filter_count,
@@ -223,28 +223,28 @@ int ComputeWorkerBatch(WorkerBatch *batch)
                  worker->gpu_id, batch->slot_index, batch->start_group, frame_batch);
     }
 
-    CUDACHECK(cudaMemset(worker->d_sacdata_2x, 0, plan_cnt * plan->output_nfft * sizeof(float)));
-    CUDACHECK(cudaMemset(worker->d_spectrum_2x, 0, plan_cnt * plan->output_nfft * sizeof(cuComplex)));
-    CUDACHECK(cudaMemcpy2D(worker->d_sacdata_2x, plan->output_nfft * sizeof(float),
+    CUDACHECK(cudaMemset(worker->d_padded_sacdata, 0, plan_cnt * plan->output_nfft * sizeof(float)));
+    CUDACHECK(cudaMemset(worker->d_padded_spectrum, 0, plan_cnt * plan->output_nfft * sizeof(cuComplex)));
+    CUDACHECK(cudaMemcpy2D(worker->d_padded_sacdata, plan->output_nfft * sizeof(float),
                            worker->d_sacdata, plan->segment_pts * sizeof(float),
                            plan->segment_pts * sizeof(float), proc_cnt, cudaMemcpyDeviceToDevice));
-    CUFFTCHECK(cufftExecR2C(worker->planfwd_output, (cufftReal *)worker->d_sacdata_2x,
-                            (cufftComplex *)worker->d_spectrum_2x));
-    if (fft_forward_normalize(worker->d_spectrum_2x, plan->output_nfft,
+    CUFFTCHECK(cufftExecR2C(worker->planfwd_output, (cufftReal *)worker->d_padded_sacdata,
+                            (cufftComplex *)worker->d_padded_spectrum));
+    if (fft_forward_normalize(worker->d_padded_spectrum, plan->output_nfft,
                                           plan->nspec_output, proc_cnt, plan->delta) != 0 ||
-        complex_sanitize(worker->d_spectrum_2x, plan->output_nfft,
+        complex_sanitize(worker->d_padded_spectrum, plan->output_nfft,
                                          plan->nspec_output, proc_cnt) != 0)
     {
         return -1;
     }
     if (plan->output_phase_only)
     {
-        if (phase_only(worker->d_spectrum_2x, plan->output_nfft,
+        if (phase_only(worker->d_padded_spectrum, plan->output_nfft,
                                        plan->nspec_output, proc_cnt, MINVAL) != 0)
         {
             return -1;
         }
-        if (complex_sanitize(worker->d_spectrum_2x, plan->output_nfft,
+        if (complex_sanitize(worker->d_padded_spectrum, plan->output_nfft,
                                              plan->nspec_output, proc_cnt) != 0)
         {
             return -1;
@@ -256,17 +256,12 @@ int ComputeWorkerBatch(WorkerBatch *batch)
              worker->gpu_id, batch->slot_index, batch->start_group, plan->nspec_output,
              plan->output_phase_only);
 
-    for (int out_step = 0; out_step < plan->nstep_valid; out_step++)
-    {
-        const cuComplex *src = worker->d_spectrum_2x
-                               + (size_t)out_step * proc_file_cnt * (size_t)plan->output_nfft;
-        complex *dst = slot->h_spectrum + (size_t)out_step * (size_t)plan->nspec_output;
-        CUDACHECK(cudaMemcpy2D(dst,
-                               plan->nstep_valid * plan->nspec_output * sizeof(complex),
-                               src, plan->output_nfft * sizeof(cuComplex),
-                               plan->nspec_output * sizeof(complex), proc_file_cnt,
-                               cudaMemcpyDeviceToHost));
-    }
+    CUDACHECK(cudaMemcpy2D(slot->h_spectrum,
+                           plan->nspec_output * sizeof(complex),
+                           worker->d_padded_spectrum,
+                           plan->output_nfft * sizeof(cuComplex),
+                           plan->nspec_output * sizeof(complex), proc_cnt,
+                           cudaMemcpyDeviceToHost));
 
     LOG_INFO("worker_d2h_spectrum_done",
              "gpu=%d slot=%d start_group=%zu group_count=%zu file_rows=%zu nstep_valid=%d nspec=%d",

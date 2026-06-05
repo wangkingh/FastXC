@@ -2,7 +2,7 @@
 
 All notable project changes are recorded here. Dates use `YYYY-MM-DD`.
 
-## [Unreleased] - 2026-05-31
+## [Unreleased] - 2026-06-04
 
 ### Added
 
@@ -14,8 +14,16 @@ All notable project changes are recorded here. Dates use `YYYY-MM-DD`.
 
 ### Changed
 
+- Retired the Python XCache/SPACK mainline. SAC2SPEC now writes `stepack/`
+  worker-batch files, native XC reads that workspace directly, and SourcePack
+  receives timestamp expectations from the inventory manifest.
+- Removed the native backup directories and the `xc_only_read` comparison
+  benchmark from the maintained build tree.
 - Updated the English and Chinese READMEs with direct links to public
   architecture and result-artifact policy documentation.
+- Clarified the current pack/index result model in README, Outputs, and agent
+  notes: XC-side SourcePack is an index over `ncf/xcpack`, while stack/rotate
+  SourcePack outputs are materialized products.
 - Reworked the Chinese README into a public user guide and moved migration
   rationale, cleanup notes, and architecture-change context into changelog/docs
   instead of the top-level usage page.
@@ -37,7 +45,7 @@ All notable project changes are recorded here. Dates use `YYYY-MM-DD`.
   templates and configs; stacking and rotation are Python-native FastXC stages.
 - Consolidated the public INI layout so `[compute]` carries the core compute
   fields (`max_lag`, `stack_flag`, `workspace_dir`), while advanced path
-  filtering, xcache, SourcePack, and PWS/TF-PWS tuning live under
+  filtering, SourcePack, and PWS/TF-PWS tuning live under
   `advance.compute`.
 - Renamed the phase-only and pre-stack controls to
   `advance.compute.phase_only` and `advance.compute.pre_stack_size`.

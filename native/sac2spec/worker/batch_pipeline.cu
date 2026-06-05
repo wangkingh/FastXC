@@ -7,10 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef void *(*BatchStageEntry)(void *);
-
 static void InitWorkerBatch(WorkerBatch *batch, GpuWorker *worker,
                             WorkerHostSlot *slot,
+                            size_t batch_seq,
                             size_t start_group, size_t group_count)
 {
     const Sac2SpecPlan *plan = worker->plan;
@@ -18,6 +17,7 @@ static void InitWorkerBatch(WorkerBatch *batch, GpuWorker *worker,
     batch->worker = worker;
     batch->slot = slot;
     batch->slot_index = slot != NULL ? slot->slot_id : -1;
+    batch->batch_seq = batch_seq;
     batch->start_group = start_group;
     batch->group_count = group_count;
     batch->file_rows = group_count * (size_t)plan->num_ch;
@@ -26,53 +26,67 @@ static void InitWorkerBatch(WorkerBatch *batch, GpuWorker *worker,
     batch->plan_rows = worker->frame_capacity * (size_t)plan->num_ch;
 }
 
-static void *LoadSacBatchStageMain(void *arg)
+static void *ReadBatchThreadMain(void *arg)
 {
     WorkerBatch *batch = (WorkerBatch *)arg;
     batch->status = LoadWorkerBatchSac(batch);
     return NULL;
 }
 
-static void *ComputeBatchStageMain(void *arg)
-{
-    WorkerBatch *batch = (WorkerBatch *)arg;
-    batch->status = ComputeWorkerBatch(batch);
-    return NULL;
-}
-
-static void *WriteOutputBatchStageMain(void *arg)
+static void *WriteBatchThreadMain(void *arg)
 {
     WorkerBatch *batch = (WorkerBatch *)arg;
     batch->status = WriteWorkerBatchOutput(batch);
     return NULL;
 }
 
-static int StartBatchStage(WorkerBatch *batch, const char *stage_name,
-                           BatchStageEntry entry)
+static int StartReadBatch(WorkerBatch *batch)
 {
     batch->status = 0;
-    batch->stage_name = stage_name;
-    LOG_DEBUG("batch_stage_start",
-              "stage=%s gpu=%d slot=%d start_group=%zu group_count=%zu",
-              stage_name, batch->worker->gpu_id,
-              batch->slot_index, batch->start_group, batch->group_count);
+    batch->stage_name = "read_sac";
+    LOG_DEBUG("pipelined_io_read_start",
+              "gpu=%d slot=%d batch_seq=%zu start_group=%zu group_count=%zu",
+              batch->worker->gpu_id, batch->slot_index, batch->batch_seq,
+              batch->start_group, batch->group_count);
 
-    int err = pthread_create(&batch->thread, NULL, entry, batch);
+    int err = pthread_create(&batch->thread, NULL, ReadBatchThreadMain, batch);
     if (err != 0)
     {
         LOG_ERROR("thread_create_failed",
-                  "phase=%s gpu=%d slot=%d start_group=%zu group_count=%zu",
-                  stage_name, batch->worker->gpu_id,
-                  batch->slot_index, batch->start_group, batch->group_count);
+                  "phase=read_sac gpu=%d slot=%d batch_seq=%zu start_group=%zu group_count=%zu",
+                  batch->worker->gpu_id, batch->slot_index,
+                  batch->batch_seq, batch->start_group, batch->group_count);
         return -1;
     }
     batch->thread_active = 1;
     return 0;
 }
 
-static int JoinBatchStage(WorkerBatch *batch)
+static int StartWriteBatch(WorkerBatch *batch)
 {
-    const char *stage_name = batch->stage_name != NULL ? batch->stage_name : "unknown";
+    batch->status = 0;
+    batch->stage_name = "write_output";
+    LOG_DEBUG("pipelined_io_write_start",
+              "gpu=%d slot=%d batch_seq=%zu start_group=%zu group_count=%zu",
+              batch->worker->gpu_id, batch->slot_index, batch->batch_seq,
+              batch->start_group, batch->group_count);
+
+    int err = pthread_create(&batch->thread, NULL, WriteBatchThreadMain, batch);
+    if (err != 0)
+    {
+        LOG_ERROR("thread_create_failed",
+                  "phase=write_output gpu=%d slot=%d batch_seq=%zu start_group=%zu group_count=%zu",
+                  batch->worker->gpu_id, batch->slot_index,
+                  batch->batch_seq, batch->start_group, batch->group_count);
+        return -1;
+    }
+    batch->thread_active = 1;
+    return 0;
+}
+
+static int WaitBatchThread(WorkerBatch *batch, const char *stage_name)
+{
+    const char *phase = batch->stage_name != NULL ? batch->stage_name : stage_name;
     if (!batch->thread_active)
     {
         return 0;
@@ -81,9 +95,10 @@ static int JoinBatchStage(WorkerBatch *batch)
     if (pthread_join(batch->thread, NULL) != 0)
     {
         LOG_ERROR("thread_join_failed",
-                  "phase=%s gpu=%d slot=%d start_group=%zu group_count=%zu",
-                  stage_name, batch->worker->gpu_id,
-                  batch->slot_index, batch->start_group, batch->group_count);
+                  "phase=%s gpu=%d slot=%d batch_seq=%zu start_group=%zu group_count=%zu",
+                  phase, batch->worker->gpu_id,
+                  batch->slot_index, batch->batch_seq,
+                  batch->start_group, batch->group_count);
         batch->thread_active = 0;
         return -1;
     }
@@ -91,46 +106,58 @@ static int JoinBatchStage(WorkerBatch *batch)
 
     if (batch->status != 0)
     {
-        LOG_ERROR("batch_stage_failed",
-                  "stage=%s gpu=%d slot=%d start_group=%zu group_count=%zu status=%d",
-                  stage_name, batch->worker->gpu_id, batch->slot_index,
-                  batch->start_group, batch->group_count, batch->status);
+        LOG_ERROR("pipelined_io_thread_failed",
+                  "stage=%s gpu=%d slot=%d batch_seq=%zu start_group=%zu group_count=%zu status=%d",
+                  phase, batch->worker->gpu_id, batch->slot_index,
+                  batch->batch_seq, batch->start_group, batch->group_count,
+                  batch->status);
         return -1;
     }
 
-    LOG_DEBUG("batch_stage_done",
-              "stage=%s gpu=%d slot=%d start_group=%zu group_count=%zu",
-              stage_name, batch->worker->gpu_id,
-              batch->slot_index, batch->start_group, batch->group_count);
+    LOG_DEBUG("pipelined_io_thread_done",
+              "stage=%s gpu=%d slot=%d batch_seq=%zu start_group=%zu group_count=%zu",
+              phase, batch->worker->gpu_id,
+              batch->slot_index, batch->batch_seq,
+              batch->start_group, batch->group_count);
     return 0;
 }
 
-static int RunBatchStage(WorkerBatch *batch, const char *stage_name,
-                         BatchStageEntry entry)
+static int WaitReadBatch(WorkerBatch *batch)
 {
-    if (StartBatchStage(batch, stage_name, entry) != 0)
-    {
-        return -1;
-    }
-    return JoinBatchStage(batch);
+    return WaitBatchThread(batch, "read_sac");
 }
 
-static int ProcessWorkerBatch(GpuWorker *worker, size_t start_group, size_t group_count)
+static int WaitWriteBatch(WorkerBatch *batch)
 {
-    WorkerBatch batch;
-    InitWorkerBatch(&batch, worker, &worker->host_slots[0], start_group, group_count);
+    return WaitBatchThread(batch, "write_output");
+}
 
-    if (RunBatchStage(&batch, "read_sac", LoadSacBatchStageMain) != 0)
+static int RunWorkerSequentialBatches(GpuWorker *worker)
+{
+    size_t start_group = 0;
+    size_t group_count = 0;
+    size_t batch_seq = 0;
+    while (TaskQueuePop(worker->queue, worker->capacity,
+                        &start_group, &group_count, &batch_seq))
     {
-        return -1;
-    }
-    if (RunBatchStage(&batch, "compute", ComputeBatchStageMain) != 0)
-    {
-        return -1;
-    }
-    if (RunBatchStage(&batch, "write_output", WriteOutputBatchStageMain) != 0)
-    {
-        return -1;
+        LOG_INFO("gpu_worker_batch_start",
+                 "gpu=%d batch_seq=%zu start_group=%zu group_count=%zu file_capacity=%zu",
+                 worker->gpu_id, batch_seq, start_group, group_count, worker->capacity);
+
+        WorkerBatch batch;
+        InitWorkerBatch(&batch, worker, &worker->host_slots[0],
+                        batch_seq, start_group, group_count);
+
+        if (LoadWorkerBatchSac(&batch) != 0 ||
+            ComputeWorkerBatch(&batch) != 0 ||
+            WriteWorkerBatchOutput(&batch) != 0)
+        {
+            return -1;
+        }
+
+        LOG_INFO("gpu_worker_batch_done",
+                 "gpu=%d batch_seq=%zu start_group=%zu group_count=%zu",
+                 worker->gpu_id, batch_seq, start_group, group_count);
     }
 
     return 0;
@@ -148,14 +175,24 @@ static int FindFreeHostSlot(const int *slot_busy, int slot_count)
     return -1;
 }
 
-static int ScheduleLazyRead(GpuWorker *worker, WorkerBatch *batches,
-                            int *slot_busy, WorkerBatch **out_batch)
+static void MarkBatchSlotFree(WorkerBatch *batch, int *slot_busy)
+{
+    if (batch != NULL && batch->slot_index >= 0)
+    {
+        slot_busy[batch->slot_index] = 0;
+    }
+}
+
+static int StartNextReadBatch(GpuWorker *worker, WorkerBatch *batches,
+                              int *slot_busy, WorkerBatch **out_batch)
 {
     size_t start_group = 0;
     size_t group_count = 0;
+    size_t batch_seq = 0;
     *out_batch = NULL;
 
-    if (!TaskQueuePop(worker->queue, worker->capacity, &start_group, &group_count))
+    if (!TaskQueuePop(worker->queue, worker->capacity,
+                      &start_group, &group_count, &batch_seq))
     {
         return 0;
     }
@@ -163,7 +200,7 @@ static int ScheduleLazyRead(GpuWorker *worker, WorkerBatch *batches,
     int slot_index = FindFreeHostSlot(slot_busy, worker->host_slot_count);
     if (slot_index < 0)
     {
-        LOG_ERROR("lazy_async_no_free_slot",
+        LOG_ERROR("pipelined_io_no_free_slot",
                   "gpu=%d host_slots=%d start_group=%zu group_count=%zu",
                   worker->gpu_id, worker->host_slot_count,
                   start_group, group_count);
@@ -172,13 +209,13 @@ static int ScheduleLazyRead(GpuWorker *worker, WorkerBatch *batches,
 
     slot_busy[slot_index] = 1;
     InitWorkerBatch(&batches[slot_index], worker, &worker->host_slots[slot_index],
-                    start_group, group_count);
+                    batch_seq, start_group, group_count);
 
-    LOG_INFO("lazy_async_read_scheduled",
-             "gpu=%d slot=%d start_group=%zu group_count=%zu",
-             worker->gpu_id, slot_index, start_group, group_count);
+    LOG_INFO("pipelined_io_read_scheduled",
+             "gpu=%d slot=%d batch_seq=%zu start_group=%zu group_count=%zu",
+             worker->gpu_id, slot_index, batch_seq, start_group, group_count);
 
-    if (StartBatchStage(&batches[slot_index], "read_sac", LoadSacBatchStageMain) != 0)
+    if (StartReadBatch(&batches[slot_index]) != 0)
     {
         slot_busy[slot_index] = 0;
         return -1;
@@ -188,48 +225,56 @@ static int ScheduleLazyRead(GpuWorker *worker, WorkerBatch *batches,
     return 1;
 }
 
-static int ReleaseLazyWrite(WorkerBatch **write_batch, int *slot_busy)
+static int WaitWriteBatchAndReleaseSlot(WorkerBatch **write_batch, int *slot_busy)
 {
     if (*write_batch == NULL)
     {
         return 0;
     }
 
-    if (JoinBatchStage(*write_batch) != 0)
+    int rc = WaitWriteBatch(*write_batch);
+    MarkBatchSlotFree(*write_batch, slot_busy);
+    LOG_INFO("pipelined_io_slot_released",
+             "gpu=%d slot=%d batch_seq=%zu start_group=%zu group_count=%zu",
+             (*write_batch)->worker->gpu_id, (*write_batch)->slot_index,
+             (*write_batch)->batch_seq,
+             (*write_batch)->start_group, (*write_batch)->group_count);
+    *write_batch = NULL;
+    return rc;
+}
+
+static int RunWorkerPipelinedBatches(GpuWorker *worker)
+{
+    int slot_count = worker->host_slot_count;
+    if (slot_count < 3)
     {
+        LOG_ERROR("pipelined_io_requires_host_slots",
+                  "gpu=%d host_slots=%d required=3",
+                  worker->gpu_id, slot_count);
         return -1;
     }
 
-    slot_busy[(*write_batch)->slot_index] = 0;
-    LOG_INFO("lazy_async_slot_released",
-             "gpu=%d slot=%d start_group=%zu group_count=%zu",
-             (*write_batch)->worker->gpu_id, (*write_batch)->slot_index,
-             (*write_batch)->start_group, (*write_batch)->group_count);
-    *write_batch = NULL;
-    return 0;
-}
-
-static int ProcessWorkerBatchesLazyAsync(GpuWorker *worker)
-{
-    int slot_count = worker->host_slot_count;
     WorkerBatch *batches = (WorkerBatch *)calloc((size_t)slot_count, sizeof(WorkerBatch));
     int *slot_busy = (int *)calloc((size_t)slot_count, sizeof(int));
     if (batches == NULL || slot_busy == NULL)
     {
-        LOG_ERROR("cpu_malloc_failed", "target=lazy_async_state slots=%d", slot_count);
+        LOG_ERROR("cpu_malloc_failed", "target=pipelined_io_state slots=%d", slot_count);
         free(batches);
         free(slot_busy);
         return -1;
     }
 
-    LOG_INFO("lazy_async_worker_start",
+    /* Pipelined mode keeps three host slots in flight:
+     * read next, compute current, and write previous.
+     */
+    LOG_INFO("pipelined_io_worker_start",
              "gpu=%d host_slots=%d file_capacity=%zu",
              worker->gpu_id, slot_count, worker->capacity);
 
     WorkerBatch *current = NULL;
     WorkerBatch *write_batch = NULL;
 
-    int rc = ScheduleLazyRead(worker, batches, slot_busy, &current);
+    int rc = StartNextReadBatch(worker, batches, slot_busy, &current);
     if (rc < 0)
     {
         free(batches);
@@ -243,9 +288,9 @@ static int ProcessWorkerBatchesLazyAsync(GpuWorker *worker)
         return 0;
     }
 
-    if (JoinBatchStage(current) != 0)
+    if (WaitReadBatch(current) != 0)
     {
-        slot_busy[current->slot_index] = 0;
+        MarkBatchSlotFree(current, slot_busy);
         free(batches);
         free(slot_busy);
         return -1;
@@ -254,60 +299,63 @@ static int ProcessWorkerBatchesLazyAsync(GpuWorker *worker)
     while (current != NULL)
     {
         WorkerBatch *next = NULL;
-        rc = ScheduleLazyRead(worker, batches, slot_busy, &next);
+        rc = StartNextReadBatch(worker, batches, slot_busy, &next);
         if (rc < 0)
         {
             if (write_batch != NULL)
             {
-                (void)ReleaseLazyWrite(&write_batch, slot_busy);
+                (void)WaitWriteBatchAndReleaseSlot(&write_batch, slot_busy);
             }
+            MarkBatchSlotFree(current, slot_busy);
             free(batches);
             free(slot_busy);
             return -1;
         }
 
-        LOG_INFO("lazy_async_compute_current",
-                 "gpu=%d slot=%d start_group=%zu group_count=%zu next_prefetch=%d",
+        LOG_INFO("pipelined_io_compute_current",
+                 "gpu=%d slot=%d batch_seq=%zu start_group=%zu group_count=%zu next_prefetch=%d",
                  worker->gpu_id, current->slot_index,
-                 current->start_group, current->group_count,
+                 current->batch_seq, current->start_group, current->group_count,
                  next != NULL);
 
         if (ComputeWorkerBatch(current) != 0)
         {
             if (next != NULL)
             {
-                (void)JoinBatchStage(next);
-                slot_busy[next->slot_index] = 0;
+                (void)WaitReadBatch(next);
+                MarkBatchSlotFree(next, slot_busy);
             }
             if (write_batch != NULL)
             {
-                (void)ReleaseLazyWrite(&write_batch, slot_busy);
+                (void)WaitWriteBatchAndReleaseSlot(&write_batch, slot_busy);
             }
+            MarkBatchSlotFree(current, slot_busy);
             free(batches);
             free(slot_busy);
             return -1;
         }
 
-        if (ReleaseLazyWrite(&write_batch, slot_busy) != 0)
+        if (WaitWriteBatchAndReleaseSlot(&write_batch, slot_busy) != 0)
         {
             if (next != NULL)
             {
-                (void)JoinBatchStage(next);
-                slot_busy[next->slot_index] = 0;
+                (void)WaitReadBatch(next);
+                MarkBatchSlotFree(next, slot_busy);
             }
+            MarkBatchSlotFree(current, slot_busy);
             free(batches);
             free(slot_busy);
             return -1;
         }
 
-        if (StartBatchStage(current, "write_output", WriteOutputBatchStageMain) != 0)
+        if (StartWriteBatch(current) != 0)
         {
             if (next != NULL)
             {
-                (void)JoinBatchStage(next);
-                slot_busy[next->slot_index] = 0;
+                (void)WaitReadBatch(next);
+                MarkBatchSlotFree(next, slot_busy);
             }
-            slot_busy[current->slot_index] = 0;
+            MarkBatchSlotFree(current, slot_busy);
             free(batches);
             free(slot_busy);
             return -1;
@@ -316,10 +364,10 @@ static int ProcessWorkerBatchesLazyAsync(GpuWorker *worker)
 
         if (next != NULL)
         {
-            if (JoinBatchStage(next) != 0)
+            if (WaitReadBatch(next) != 0)
             {
-                (void)ReleaseLazyWrite(&write_batch, slot_busy);
-                slot_busy[next->slot_index] = 0;
+                (void)WaitWriteBatchAndReleaseSlot(&write_batch, slot_busy);
+                MarkBatchSlotFree(next, slot_busy);
                 free(batches);
                 free(slot_busy);
                 return -1;
@@ -332,8 +380,8 @@ static int ProcessWorkerBatchesLazyAsync(GpuWorker *worker)
         }
     }
 
-    rc = ReleaseLazyWrite(&write_batch, slot_busy);
-    LOG_INFO("lazy_async_worker_done", "gpu=%d status=%d", worker->gpu_id, rc);
+    rc = WaitWriteBatchAndReleaseSlot(&write_batch, slot_busy);
+    LOG_INFO("pipelined_io_worker_done", "gpu=%d status=%d", worker->gpu_id, rc);
 
     free(batches);
     free(slot_busy);
@@ -353,28 +401,16 @@ void *RunGpuWorkerThreadMain(void *arg)
 
     if (worker->plan->lazy_async)
     {
-        if (ProcessWorkerBatchesLazyAsync(worker) != 0)
+        if (RunWorkerPipelinedBatches(worker) != 0)
         {
             worker->failed = 1;
         }
     }
     else
     {
-        size_t start_group = 0;
-        size_t group_count = 0;
-        while (TaskQueuePop(worker->queue, worker->capacity, &start_group, &group_count))
+        if (RunWorkerSequentialBatches(worker) != 0)
         {
-            LOG_INFO("gpu_worker_batch_start",
-                     "gpu=%d start_group=%zu group_count=%zu file_capacity=%zu",
-                     worker->gpu_id, start_group, group_count, worker->capacity);
-            if (ProcessWorkerBatch(worker, start_group, group_count) != 0)
-            {
-                worker->failed = 1;
-                break;
-            }
-            LOG_INFO("gpu_worker_batch_done",
-                     "gpu=%d start_group=%zu group_count=%zu",
-                     worker->gpu_id, start_group, group_count);
+            worker->failed = 1;
         }
     }
 

@@ -23,7 +23,6 @@ from .schema import (
     Storage,
     TimeFilter,
     Unpack,
-    XCache,
     Xcorr,
 )
 
@@ -56,7 +55,13 @@ RETIRED_ARRAY_SECTION_RE = re.compile(r"^array[1-9](?:[._-].*)?$", re.IGNORECASE
 RETIRED_ADVANCE_COMPUTE_KEYS = {
     "sourcepack_enabled",
     "sourcepack_sort_within_source",
+    "xc_input",
+    "xc_input_mode",
+    "windows_per_xcache",
+    "windows_per_shard",
+    "xcache_async_after_sac2spec",
     "xcache_async_poll_sec",
+    "xcache_cleanup_timestamp_spack",
     "sourcepack_async_poll_sec",
 }
 RETIRED_ADVANCE_STORAGE_KEYS = {
@@ -161,20 +166,6 @@ class Config(Mapping[str, Any]):
             self._sections["storage"] = Storage.from_cfg(storage_kv)
         except Exception as exc:
             raise ConfigError(f"[compute.workspace_dir] parsing error: {exc}") from None
-
-        xcache_kv = _project_keys(
-            advance_compute_kv,
-            {
-                "windows_per_xcache": "windows_per_xcache",
-                "xcache_async_after_sac2spec": "async_after_sac2spec",
-                "async_poll_sec": "async_poll_sec",
-                "xcache_cleanup_timestamp_spack": "cleanup_timestamp_spack",
-            },
-        )
-        try:
-            self._sections["xcache"] = XCache.from_cfg(xcache_kv)
-        except Exception as exc:
-            raise ConfigError(f"[advance.compute] xcache parsing error: {exc}") from None
 
         sourcepack_kv = _project_keys(
             advance_compute_kv,
@@ -383,19 +374,6 @@ class Config(Mapping[str, Any]):
                 cp_out.setdefault("compute", {})["workspace_dir"] = _stringify(obj.workspace_dir)
                 continue
 
-            if name == "xcache":
-                advanced_out.setdefault("advance.compute", {}).update(
-                    _prefixed_items(
-                        data,
-                        {
-                            "windows_per_xcache": "windows_per_xcache",
-                            "async_after_sac2spec": "xcache_async_after_sac2spec",
-                            "async_poll_sec": "async_poll_sec",
-                            "cleanup_timestamp_spack": "xcache_cleanup_timestamp_spack",
-                        },
-                    )
-                )
-                continue
             if name == "sourcepack":
                 advanced_out.setdefault("advance.compute", {}).update(
                     _prefixed_items(

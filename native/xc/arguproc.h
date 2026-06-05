@@ -7,8 +7,7 @@
 
 typedef struct ARGUTYPE
 {
-  char *timestamp_index_path;  /* -I: xcspec_index.tsv */
-  char *single_timestamp_path; /* --timestamp: one .xcspec shard */
+  char *input_path;            /* -I: stepack directory or TSV */
   char *ncf_dir;               /* -O output root */
   float cclength;              /* -C seconds */
 
@@ -18,7 +17,6 @@ typedef struct ARGUTYPE
   size_t gpu_ids[MAX_GPU_WORKERS];
   size_t gpu_count;
   size_t gpu_id;    /* first GPU */
-  size_t cpu_count; /* -T writer threads for direct-output modes */
 
   char *gpu_mem_limit_text; /* -M, comma-separated per-worker VRAM caps in MiB */
   double gpu_mem_limit_mib[MAX_GPU_WORKERS];
@@ -26,8 +24,6 @@ typedef struct ARGUTYPE
   int gpu_mem_limit_set;
   size_t lazy_write_depth; /* -J pending write batches per GPU worker */
   char *progress_file;     /* --progress sidecar TSV */
-
-  int write_mode; /* --write-mode append, aggregate, or pack */
 } ARGUTYPE;
 
 void usage(void);

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import platform
 import sys
@@ -40,10 +39,6 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_sourcepack(args)
     if args.command == "unpack":
         return _cmd_unpack(args)
-    if args.command == "decode-spack":
-        return _cmd_decode_spack(args)
-    if args.command == "inspect-xcache":
-        return _cmd_inspect_xcache(args)
 
     parser.print_help()
     return 2
@@ -122,24 +117,6 @@ def build_parser() -> argparse.ArgumentParser:
     unpack_parser.add_argument("-O", "--output", required=True, help="output directory for unpacked SAC files")
     unpack_parser.add_argument("-T", "--threads", type=int, default=1, help="parallel output file workers")
 
-    decode_spack_parser = sub.add_parser("decode-spack", help="decode SAC2SPEC spack records to SEGSPEC files")
-    decode_spack_parser.add_argument("-I", "--input", required=True, help="workspace root, spack root, timestamp dir, or TSV")
-    decode_spack_parser.add_argument("-O", "--output", required=True, help="output directory for decoded SEGSPEC files")
-    decode_spack_parser.add_argument("--timestamp", help="only decode one timestamp")
-    decode_spack_parser.add_argument("--nsl-id", type=int, help="only decode one nsl_id")
-    decode_spack_parser.add_argument("--network", help="only decode one network")
-    decode_spack_parser.add_argument("--station", help="only decode one station")
-    decode_spack_parser.add_argument("--location", help="only decode one location")
-    decode_spack_parser.add_argument("--component", help="only decode one component")
-    decode_spack_parser.add_argument("--limit", type=int, help="maximum number of records to decode")
-    decode_spack_parser.add_argument("--dry-run", action="store_true", help="count matching records without writing files")
-    decode_spack_parser.add_argument("-f", "--force", action="store_true", help="overwrite existing decoded files")
-
-    inspect_xcache_parser = sub.add_parser("inspect-xcache", help="inspect xcache binary shard headers")
-    inspect_xcache_parser.add_argument("-I", "--input", required=True, help=".xcspec file, xcache dir, or xcspec_index.tsv")
-    inspect_xcache_parser.add_argument("--sources", type=int, default=10, help="number of SourceEntry rows to print per shard")
-    inspect_xcache_parser.add_argument("--hash-payload", action="store_true", help="compute SHA256 for payload bytes")
-    inspect_xcache_parser.add_argument("--json", action="store_true", help="write machine-readable JSON")
     return parser
 
 
@@ -177,12 +154,9 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
             print(f"  xc: {cfg.executables.xc}")
             print(f"  pws: {cfg.executables.pws}")
             print(f"  tfpws: {cfg.executables.tfpws}")
+            print("  XC data source: stepack")
             print(f"  autocorr_mode: {cfg.xcorr.autocorr_mode}")
-            windows = cfg.xcache.windows_per_xcache
-            print(f"  windows_per_xcache: {windows if windows is not None else 'AUTO'}")
-            print(f"  xcache_async_after_sac2spec: {cfg.xcache.async_after_sac2spec}")
-            print(f"  async_poll_sec: {cfg.xcache.async_poll_sec:g}")
-            print(f"  xcache_cleanup_timestamp_spack: {cfg.xcache.cleanup_timestamp_spack}")
+            print(f"  async_poll_sec: {cfg.sourcepack.async_poll_sec:g}")
             print(f"  sourcepack_async_after_xc: {cfg.sourcepack.async_after_xc}")
             print(f"  unpack_enabled: {cfg.unpack.enabled}")
             print(f"  unpack_target: {cfg.unpack.target}")
@@ -348,53 +322,6 @@ def _cmd_unpack(args: argparse.Namespace) -> int:
         f"Unpacked {result.record_count} record(s) into {result.file_count} SAC file(s), "
         f"{result.bytes_written} byte(s)."
     )
-    return 0
-
-
-def _cmd_decode_spack(args: argparse.Namespace) -> int:
-    from .tools.decode_spack import decode_spack
-
-    try:
-        result = decode_spack(
-            args.input,
-            args.output,
-            timestamp=args.timestamp,
-            nsl_id=args.nsl_id,
-            network=args.network,
-            station=args.station,
-            location=args.location,
-            component=args.component,
-            limit=args.limit,
-            dry_run=args.dry_run,
-            overwrite=args.force,
-        )
-    except Exception as exc:
-        logging.getLogger(__name__).error("%s", exc)
-        return 1
-    verb = "Would decode" if args.dry_run else "Decoded"
-    print(f"{verb} {result.record_count} SEGSPEC record(s), {result.bytes_written} byte(s).")
-    print(f"Output: {result.output_dir}")
-    return 0
-
-
-def _cmd_inspect_xcache(args: argparse.Namespace) -> int:
-    from dataclasses import asdict
-
-    from .tools.inspect_xcache import format_inspections, inspect_xcache
-
-    try:
-        inspections = inspect_xcache(
-            args.input,
-            source_limit=max(args.sources, 0),
-            hash_payload=args.hash_payload,
-        )
-    except Exception as exc:
-        logging.getLogger(__name__).error("%s", exc)
-        return 1
-    if args.json:
-        print(json.dumps([asdict(item) for item in inspections], indent=2, ensure_ascii=False))
-    else:
-        print(format_inspections(inspections))
     return 0
 
 

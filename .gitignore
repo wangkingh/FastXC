@@ -1,18 +1,30 @@
-# OS / editor noise
+# OS, editor, and local agent state
 .DS_Store
 Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+.agents/
+.codex/
 *.swp
 *.swo
+*.tmp
+*.bak
 
 # Python build and cache artifacts
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.ipynb_checkpoints/
 *.egg-info/
+pip-wheel-metadata/
 build/
 dist/
 .venv/
@@ -21,6 +33,7 @@ env/
 
 # Native build artifacts
 *.o
+*.obj
 *.d
 *.a
 *.so
@@ -28,57 +41,78 @@ env/
 *.dll
 *.exe
 *.pdb
+*.ptx
+*.cubin
+*.fatbin
 /bin/
 /fastxc/bin/
 
-# Local FastXC runs, workspaces, and binary products
+# Local FastXC runs, workspaces, and audit files
 /debug.py
 /analysis_tools/
 /testing_results/
 /result/
 /results/
+/plots/
 /plots_*/
 /sourcepack_panel_contact_sheet.png
+/linear_9c_distance_heatmap_*.png
 /_codex_compare/
 /waste_*/
-/example/workspace*/**
-!/example/workspace*/
-!/example/workspace*/.gitkeep
+/legacy/
+/workspace*/
+!example/workspace/
+example/workspace/**
+!example/workspace/.gitkeep
 
 # Private/local configs kept out of the public repository
+/TESTING/
+/configs/stalist/
+/configs/timelist/
 /configs/x2.ini
-/configs/timelist/cluster_6_timestamps.txt
+/configs/*.local.ini
+/configs/private*.ini
 
-# Root-level workspace directories
-/spack_by_timestamp/
-/xcache/
+# Root-level FastXC workspace outputs when workspace_dir = ./
+/config.snapshot.ini
+/inventory.meta.json
+/filter.txt
+/manifest/
+/path_plan/
+/stepack/
 /ncf/
 /sourcepack/
 /stack/
 /rotate/
+/commands/
 /log/
 /progress/
-/commands/
 /unpacked/
 /result_ncf/
+/ncf_*_*/
 
 # Nested workspace directories
-**/workspace/spack_by_timestamp/
-**/workspace/xcache/
-**/workspace/ncf/
-**/workspace/sourcepack/
-**/workspace/stack/
-**/workspace/rotate/
-**/workspace/log/
-**/workspace/progress/
-**/workspace/commands/
-**/workspace/unpacked/
-**/workspace/result_ncf/
+**/workspace*/config.snapshot.ini
+**/workspace*/inventory.meta.json
+**/workspace*/filter.txt
+**/workspace*/manifest/
+**/workspace*/path_plan/
+**/workspace*/stepack/
+**/workspace*/ncf/
+**/workspace*/sourcepack/
+**/workspace*/stack/
+**/workspace*/rotate/
+**/workspace*/commands/
+**/workspace*/log/
+**/workspace*/progress/
+**/workspace*/unpacked/
+**/workspace*/result_ncf/
+**/workspace*/plots/
+**/workspace*/ncf_*_*/
 
-# FastXC binary data products
-*.spack
+# FastXC binary data products and generated logs
+*.stepack
 *.SEGSPEC
-*.xcspec
 *.xcpack
 *.pack
 *.bigsac
@@ -88,3 +122,5 @@ env/
 *.tfpws.sac
 *.log
 *.time
+*.done
+_SUCCESS

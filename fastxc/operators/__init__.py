@@ -1,1 +1,1 @@
-"""FastXC Python-native operators for xcache, sourcepack, stacking, and rotation."""
+"""FastXC Python-native operators for sourcepack, stacking, and rotation."""

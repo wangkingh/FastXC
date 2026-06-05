@@ -12,11 +12,7 @@ prepare
   -> path_plan/allowed_paths.tsv
 
 sac2spec
-  -> spack_by_timestamp/<timestamp>/*.spack + *.tsv
-
-xcache
-  -> xcache/<timestamp>.xcspec
-  -> xcache/xcspec_index.tsv
+  -> stepack/w<worker>.b<batch>.stepack + .tsv
 
 xc
   -> ncf/xcpack/*.xcpack + *.tsv
@@ -47,7 +43,7 @@ stages/
   High-level orchestration of one pipeline stage at a time
 
 operators/
-  FastXC-owned data transformations: xcache, sourcepack, linear stack, rotate
+  FastXC-owned data transformations: sourcepack, linear stack, rotate
 
 io/
   Binary/index format readers and writers
@@ -58,13 +54,14 @@ runtime/
 
 ## Data Format Roles
 
-- `spack`: high-throughput SAC2SPEC output. It stores raw SEGSPEC records in
-  larger append-only blocks plus TSV sidecars.
-- `xcache`: native XC input. It is a timestamp-level, self-describing binary
-  shard with `payload[step][file][freq]` layout.
+- `stepack`: high-throughput SAC2SPEC output and native XC input. Each worker
+  batch stores a header, NSLC table, and pitched `payload[step][nslc][freq]`
+  spectra, with TSV sidecars describing virtual timestamp slices.
 - `xcpack`: native XC output packs, written under GPU memory and job sharding.
 - `sourcepack`: Source/receiver/component sorted indexes over pack records.
-  Stack and rotation consume SourcePack rather than scattered SAC files.
+  Immediately after XC it is primarily an index view over `ncf/xcpack`
+  records. After stack or rotate it is a materialized product whose own pack
+  files contain the newly computed traces.
 
 The normal pipeline keeps these binary/index formats until the final explicit
 `unpack` step. Traditional SAC files are an export product, not an internal

@@ -63,7 +63,12 @@ class AsyncSourcePackMaterializer:
         self._thread = threading.Thread(target=self._run, name="sourcepack-materializer", daemon=True)
         self._thread.start()
 
-    def finish(self) -> SourcePackBuildResult:
+    def finish(
+        self,
+        *,
+        mark_success: bool = True,
+        status_message: str | None = None,
+    ) -> SourcePackBuildResult:
         self._stop.set()
         if self._thread is not None:
             self._thread.join()
@@ -80,19 +85,31 @@ class AsyncSourcePackMaterializer:
             raise RuntimeError("async SourcePack materialization failed") from self._errors[0]
 
         index_paths = sorted(self.output_dir.glob("*/sourcepack_index.tsv"))
-        (self.output_dir / "_SUCCESS").write_text(
-            f"timestamps\t{len(index_paths)}\nrecords\t{self._record_count}\n"
-            f"sources\t{self._source_count}\nbytes_indexed\t{self._bytes_indexed}\n",
-            encoding="utf-8",
-        )
-        write_progress_file(
-            self.progress_file,
-            "DONE",
-            len(index_paths),
-            self._total_expected or len(index_paths),
-            "timestamps",
-            "source index ready",
-        )
+        success_path = self.output_dir / "_SUCCESS"
+        if mark_success:
+            success_path.write_text(
+                f"timestamps\t{len(index_paths)}\nrecords\t{self._record_count}\n"
+                f"sources\t{self._source_count}\nbytes_indexed\t{self._bytes_indexed}\n",
+                encoding="utf-8",
+            )
+            write_progress_file(
+                self.progress_file,
+                "DONE",
+                len(index_paths),
+                self._total_expected or len(index_paths),
+                "timestamps",
+                "source index ready",
+            )
+        else:
+            success_path.unlink(missing_ok=True)
+            write_progress_file(
+                self.progress_file,
+                "FAILED",
+                len(index_paths),
+                self._total_expected or len(index_paths),
+                "timestamps",
+                status_message or "upstream XC did not complete; global success marker withheld",
+            )
         return SourcePackBuildResult(
             output_dir=self.output_dir,
             index_paths=index_paths,
@@ -326,39 +343,44 @@ def _discover_expected_timestamps(
     records_by_timestamp: dict[str, list[XcPackRecord]],
 ) -> list[str]:
     timestamps = set(records_by_timestamp)
+    timestamps.update(_read_inventory_timestamps(xcpack_dir))
 
     for done_path in xcpack_dir.glob("*.done"):
         if done_path.name.startswith("_"):
             continue
         timestamps.add(done_path.name[: -len(".done")])
 
-    xcache_index = xcpack_dir.parent.parent / "xcache" / "xcspec_index.tsv"
-    if xcache_index.is_file():
-        with xcache_index.open("r", encoding="utf-8-sig", newline="") as handle:
-            reader = csv.DictReader(handle, delimiter="\t")
-            if reader.fieldnames and "timestamp" in reader.fieldnames:
-                for row in reader:
-                    timestamp = row.get("timestamp", "").strip()
-                    if timestamp:
-                        timestamps.add(timestamp)
-
     return sorted(timestamps)
 
 
 def _expected_timestamp_count(xcpack_dir: Path) -> int:
-    timestamps: set[str] = set()
-    xcache_index = xcpack_dir.parent.parent / "xcache" / "xcspec_index.tsv"
-    if xcache_index.is_file():
-        with xcache_index.open("r", encoding="utf-8-sig", newline="") as handle:
-            reader = csv.DictReader(handle, delimiter="\t")
-            if reader.fieldnames and "timestamp" in reader.fieldnames:
-                for row in reader:
-                    timestamp = row.get("timestamp", "").strip()
-                    if timestamp:
-                        timestamps.add(timestamp)
+    timestamps = _read_inventory_timestamps(xcpack_dir)
     if timestamps:
         return len(timestamps)
     return len([path for path in xcpack_dir.glob("*.done") if not path.name.startswith("_")])
+
+
+def _read_inventory_timestamps(xcpack_dir: Path) -> list[str]:
+    index_path = _workspace_root_from_xcpack(xcpack_dir) / "manifest" / "timestamp_index.tsv"
+    if not index_path.is_file():
+        return []
+
+    timestamps: list[str] = []
+    with index_path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        if not reader.fieldnames or "timestamp" not in reader.fieldnames:
+            return []
+        for row in reader:
+            timestamp = row.get("timestamp", "").strip()
+            if timestamp:
+                timestamps.append(timestamp)
+    return sorted(set(timestamps))
+
+
+def _workspace_root_from_xcpack(xcpack_dir: Path) -> Path:
+    if xcpack_dir.parent.name == "ncf":
+        return xcpack_dir.parent.parent
+    return xcpack_dir.parent
 
 
 def _timestamp_tsv_paths(xcpack_dir: Path, timestamp: str) -> list[Path]:

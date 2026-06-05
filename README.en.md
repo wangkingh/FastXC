@@ -1,6 +1,6 @@
 # FastXC
 
-[中文主文档](README.md) | [Docs](docs/README.md) | [Configuration](docs/CONFIGURATION.md) | [Outputs](docs/OUTPUTS.md) | [Changelog](CHANGELOG.md)
+[中文主文档](README.md) | [Docs Index](docs/README.md) | [Configuration](docs/CONFIGURATION.md) | [Architecture](docs/ARCHITECTURE.md) | [Outputs](docs/OUTPUTS.md) | [Results](docs/RESULTS.md) | [Changelog](CHANGELOG.md)
 
 The v2605 public cleanup, documentation rewrite, and release packaging for this
 project were assisted by OpenAI Codex / GPT Pro.
@@ -124,6 +124,8 @@ The repository includes a small anonymized three-component SAC dataset:
 example/
 ```
 
+See [example/README.md](example/README.md) for the bundled example notes.
+
 After installation and a successful `fastxc doctor`, enter the example
 directory and run:
 
@@ -169,10 +171,12 @@ Longer project notes live under `docs/`:
 - [Configuration](docs/CONFIGURATION.md) describes INI fields, path pattern
   rules, and common values.
 - [Architecture](docs/ARCHITECTURE.md) describes the current
-  `spack -> xcache -> sourcepack` data flow.
+  `stepack -> xcpack -> sourcepack` data flow.
 - [Outputs](docs/OUTPUTS.md) describes stage-by-stage workspace outputs.
 - [Results](docs/RESULTS.md) explains public result artifacts and local output
   retention.
+- [Changelog](CHANGELOG.md) records release-facing changes and compatibility
+  notes.
 
 ## Key Configuration Fields
 
@@ -216,10 +220,7 @@ distance_range = -1/50000
 azimuth_range = -1/360
 group_pair_mode = all
 autocorr_mode = off
-windows_per_xcache = AUTO
-xcache_async_after_sac2spec = True
 async_poll_sec = 5
-xcache_cleanup_timestamp_spack = True
 sourcepack_async_after_xc = True
 pre_stack_size = 10
 tfpws_band = FULL
@@ -298,9 +299,7 @@ path_plan/nsl_catalog.tsv
 ```text
 commands/
 filter.txt
-spack_by_timestamp/
-xcache/
-xcache/xcspec_index.tsv
+stepack/
 ncf/
 sourcepack/
 stack/
@@ -312,6 +311,31 @@ log/
 
 `commands/` contains review copies of the native commands that Python runs.
 See [Outputs](docs/OUTPUTS.md) for stage-by-stage artifact details.
+
+## Reading The Intermediate Results
+
+The current FastXC mainline avoids producing large numbers of temporary SAC
+files during compute. Intermediate products are usually:
+
+```text
+large binary pack files + sourcepack_index.tsv indexes
+```
+
+SAC2SPEC writes `stepack/`, and native XC reads those worker-batch spectrum
+packs directly. XC correlation output is written under `ncf/xcpack/`. The
+SourcePack stage then creates `sourcepack/<timestamp>/sourcepack_index.tsv`.
+At this point SourcePack is mostly an index view: the real correlation payload
+still lives in `ncf/xcpack/*.xcpack`.
+
+After stacking or rotation, SourcePack becomes a materialized product. For
+example, `stack/linearstack_sourcepack/STACK/linearstack.pack` contains newly
+computed linear-stack traces, and its `sourcepack_index.tsv` records where each
+trace lives in the pack. PWS and TF-PWS use the same pack + index shape, but may
+write one shard pack per GPU worker.
+
+Use the default `unpack` stage, or run `fastxc unpack` manually, when you need
+traditional SAC files. In other words, SAC is the input and final export format;
+pack + index is the main internal format for the later pipeline.
 
 Optional standalone tools are handled outside the main pipeline:
 
@@ -330,7 +354,7 @@ fastxc/stages/       Pipeline stage orchestration
 fastxc/adapters/     Native executable command adapters
 fastxc/runtime/      Native subprocess execution and progress polling
 fastxc/io/           Binary/index format readers and writers
-fastxc/operators/    Python-native xcache, stacking, rotation, and filter operators
+fastxc/operators/    Python-native SourcePack, stacking, rotation, and filter operators
 fastxc/resources/    Packaged starter config and static resources
 docs/                Architecture and public project notes
 native/sac2spec/     CUDA SAC2SPEC backend
@@ -402,7 +426,7 @@ illustration was generated with ChatGPT.
   for 9-Component Ambient Noise Cross-correlation](https://doi.org/10.1016/j.eqrea.2024.100357).
   Earthquake Research Advances.
 - Bensen, G. D., et al. (2007). [Processing seismic ambient noise data to obtain
-  reliable broad-band surface wave dispersion measurements](https://dx.doi.org/10.1111/j.1365-246x.2007.03374.x).
+  reliable broad-band surface wave dispersion measurements](https://doi.org/10.1111/j.1365-246x.2007.03374.x).
   Geophysical Journal International, 169(3), 1239-1260.
 - Cupillard, P., et al. (2011). [The one-bit noise correlation: a theory based
   on the concepts of coherent and incoherent noise](https://doi.org/10.1111/j.1365-246X.2010.04923.x).

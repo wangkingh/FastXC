@@ -42,8 +42,8 @@ Expected smoke/example shape:
 
 - `fastxc doctor` finds `sac2spec`, `xc_fast`, `ncf_pws`, and `ncf_tfpws`.
 - `fastxc prepare` writes `workspace/manifest/` and `workspace/path_plan/`.
-- `fastxc run` writes `workspace/spack_by_timestamp/`, `workspace/xcache/`,
-  `workspace/ncf/`, `workspace/sourcepack/`, and `workspace/stack/`.
+- `fastxc run` writes `workspace/stepack/`, `workspace/ncf/`,
+  `workspace/sourcepack/`, and `workspace/stack/`.
 - The example plot is written under `example/workspace/plots/`.
 
 Do not commit generated `workspace/` contents, native build outputs, local
@@ -77,12 +77,8 @@ prepare
   -> path_plan/allowed_paths.tsv
 
 sac2spec
-  -> spack_by_timestamp/<timestamp>/*.spack
-  -> spack_by_timestamp/<timestamp>/*.tsv
-
-xcache
-  -> xcache/<timestamp>.xcspec
-  -> xcache/xcspec_index.tsv
+  -> stepack/w<worker>.b<batch>.stepack
+  -> stepack/w<worker>.b<batch>.tsv
 
 xc
   -> ncf/xcpack/*.xcpack
@@ -105,6 +101,14 @@ rotate
 SAC is the input and optional final export format. Internal stages should prefer
 PACK/SourcePack data rather than materializing large numbers of SAC files.
 
+SourcePack has two roles in the current pipeline:
+
+- After XC, `sourcepack/<timestamp>/sourcepack_index.tsv` is mostly an index
+  view over records stored in `ncf/xcpack/*.xcpack`.
+- After stack or rotate, `stack/*_sourcepack/STACK/` is a materialized product:
+  its pack files contain newly computed stack/RTZ traces, and
+  `sourcepack_index.tsv` points into those packs.
+
 ## Module Boundaries
 
 ```text
@@ -114,8 +118,8 @@ fastxc/system/         executable discovery, logging, template export
 fastxc/stages/         workflow stage orchestration
 fastxc/adapters/       native command construction
 fastxc/runtime/        subprocess execution, progress files, command review
-fastxc/io/             SAC, spack, xcache, and SourcePack readers/writers
-fastxc/operators/      Python-native xcache, sourcepack, stacking, rotation
+fastxc/io/             SAC and SourcePack readers/writers
+fastxc/operators/      Python-native sourcepack, stacking, rotation
 native/                CUDA/C backends
 configs/               public smoke-test config
 example/               bundled example config, anonymized data, and plotting helper
@@ -179,21 +183,28 @@ outputs, Python caches, or local result plots. The `.gitignore` file is written
 to keep the common FastXC outputs out of Git:
 
 ```text
-spack_by_timestamp/
-xcache/
+config.snapshot.ini
+inventory.meta.json
+filter.txt
+manifest/
+path_plan/
+workspace*/
+stepack/
 ncf/
 sourcepack/
 stack/
 rotate/
-*.spack
-*.xcspec
+result_ncf/
+*.stepack
 *.xcpack
 *.pack
 *.bigsac
 ```
 
 `example/data` is intentionally kept because it makes
-the public smoke test self-contained.
+the public smoke test self-contained. `example/workspace/.gitkeep` is also kept
+so the generated example workspace location is visible while its contents stay
+ignored.
 
 ## Development Rules
 
@@ -205,9 +216,14 @@ the public smoke test self-contained.
   code depends on merge order.
 - Preserve `PACK`/SourcePack as the mainline output path for XC, stacking, PWS,
   TF-PWS, and rotation.
+- Treat `SAC`/`sacio` code in native backends as inherited external-style
+  support code unless a task explicitly asks to change it.
 - Add compatibility only when it protects a real existing config or workflow.
 - Keep public docs free of private hostnames, absolute local data paths, and
   large local result references.
+- Do not rewrite historical design notes in `CHANGELOG.md` or `changelog/`
+  just because they mention retired paths. Update them only when a current
+  user-facing instruction is wrong.
 
 ## Quick Orientation Checklist
 

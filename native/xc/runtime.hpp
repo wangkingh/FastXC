@@ -16,7 +16,6 @@ extern "C"
 {
 #include "include/complex.h"
 #include "path_table.h"
-#include "include/write_mode.h"
 }
 
 class FastxcProgressSidecar;
@@ -38,29 +37,71 @@ struct SpecMeta
   int gnsl_id = 0;
 };
 
+struct StepackInputFragment
+{
+  std::string pack_path;
+  size_t worker_id = 0;
+  size_t batch_seq = 0;
+  size_t start_group = 0;
+  size_t group_count = 0;
+  size_t nslc_start = 0;
+  size_t nslc_count = 0;
+  size_t batch_nslc_count = 0;
+  size_t nstep = 0;
+  size_t nspec = 0;
+  float dt = 0.0f;
+  float df = 0.0f;
+  size_t payload_offset = 0;
+  size_t payload_bytes = 0;
+  size_t step_bytes = 0;
+  size_t pitch_step_bytes = 0;
+  size_t nslc_step_bytes = 0;
+};
+
+struct StepackFragment
+{
+  std::string pack_path;
+  int fd = -1;
+  size_t nslc_start = 0;
+  size_t nslc_count = 0;
+  size_t batch_nslc_count = 0;
+  size_t payload_offset = 0;
+  size_t payload_bytes = 0;
+  size_t step_bytes = 0;
+  size_t pitch_step_bytes = 0;
+  size_t nslc_step_bytes = 0;
+};
+
+struct NslcLocator
+{
+  size_t fragment_index = 0;
+  size_t fragment_local_index = 0;
+};
+
 struct TimestampWork
 {
   std::string input_path;
   std::string timestamp;
-  std::string xcspec_path;
+  std::string input_pack_path;
   std::string manifest_path;
   std::vector<SpecMeta> specs;
   size_t num_channels = 0;
-  int xcspec_fd = -1;
-  size_t xcspec_payload_offset = 0;
-  size_t xcspec_step_bytes = 0; /* all files for one step */
-  size_t xcspec_payload_bytes = 0;
+  size_t logical_step_bytes = 0; /* all files for one step */
+  size_t logical_payload_bytes = 0;
   uint64_t manifest_hash_u64 = 0;
   std::vector<complex> payload_cache;
   bool payload_cache_enabled = false;
+  std::vector<StepackFragment> stepack_fragments;
+  std::vector<NslcLocator> nslc_locators;
 };
 
 struct TimestampInput
 {
   std::string timestamp;
-  std::string xcspec_path;
+  std::string input_pack_path;
   std::string manifest_path;
   size_t file_count_hint = 0;
+  std::vector<StepackInputFragment> stepack_fragments;
 };
 
 struct RuntimeShape
@@ -135,8 +176,6 @@ struct WorkerConfig
   size_t gpu_id = 0;
   size_t block_file_count = 1;
   size_t pair_capacity = 1;
-  size_t writer_threads = 1;
-  int write_mode = MODE_APPEND;
   size_t lazy_write_depth = 0;
   const char *output_dir = NULL;
   FastxcProgressSidecar *progress = NULL;
@@ -167,18 +206,6 @@ struct GpuBuffers
   size_t cufft_work_bytes = 0;
   size_t pair_capacity = 0;
   cufftHandle plan = 0;
-};
-
-struct WriteContext
-{
-  const WorkerConfig *cfg = NULL;
-  const RuntimeShape *shape = NULL;
-  const TimestampWork *timestamp = NULL;
-  const RowBatchJob *job = NULL;
-  const std::vector<XcTask> *tasks = NULL;
-  const float *cc = NULL;
-  size_t begin = 0;
-  size_t end = 0;
 };
 
 struct WriteBatch

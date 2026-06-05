@@ -7,17 +7,21 @@
  *    the weight used as the divisor is calculated using all three components
  *    both in time domain normalization and frequency domain whitenning.
  *
- * 4. save segment spectra into timestamp-local spack shards.
+ * 4. save segment spectra into pitched step-major worker-batch files.
  *
- * The output is a spack workspace used by the FastXC xcache builder:
- *   spack_by_timestamp/<timestamp>/w<worker_id>.p<part_id>.spack
- *   spack_by_timestamp/<timestamp>/w<worker_id>.p<part_id>.tsv
+ * The output is a stepack workspace used by FastXC:
+ *   stepack/w<worker_id>.b<batch_seq>.stepack
+ *   stepack/w<worker_id>.b<batch_seq>.tsv
  *
- * Each spack record is a raw SEGSPEC header followed by its complex spectrum payload.
- * The header layout is defined in segspec.h. The TSV sidecar records pack path,
- * byte offset, byte size, timestamp, source id, component, and spectrum metadata.
+ * Each stepack file is a batch header + full batch NSLC table +
+ * pitched [step][batch_nslc][freq] complex spectrum payload. The TSV sidecar
+ * records timestamp-run virtual slices: pack path, byte offset, byte size,
+ * nslc_start/nslc_count, batch acquisition order, logical group range, and
+ * pitch metadata.
  *
- * FastXC converts the spack records into step-major xcache files before cross correlation.
+ * Native XC reads the stepack workspace directly and uses the TSV sidecars as
+ * virtual timestamp slices, so SAC2SPEC no longer materializes timestamp-local
+ * spectrum packs.
  *
  * Note:
  * History:

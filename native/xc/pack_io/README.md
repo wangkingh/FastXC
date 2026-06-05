@@ -1,6 +1,6 @@
 # XC Pack Output
 
-`pack_io` implements the native side of `--write-mode pack`.
+`pack_io` implements native XC pack output.
 
 Native responsibility:
 
@@ -24,6 +24,6 @@ Each binary record is:
 [SACHEAD][float trace payload]
 ```
 
-The TSV sidecar keeps `final_pair_path`, which is the final `.bigsac` path that
-append/aggregate mode would have written directly.  The final pair-level append
-or aggregate materialization is intentionally left to a host-side finalize step.
+The TSV sidecar keeps `final_pair_path`, the canonical final pair destination.
+The final pair-level materialization is intentionally left to a host-side
+finalize step.

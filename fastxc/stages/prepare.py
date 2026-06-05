@@ -43,4 +43,9 @@ class PrepareInventoryStage:
             result.allowed_path_count,
             plan.pair_checks_total,
         )
-        logger.info("Inventory written: %s (%d SAC row(s)).", result.sac_index, result.sac_row_count)
+        logger.info(
+            "Inventory written: %s (%d SAC row(s), %d timestamp(s)).",
+            result.sac_index,
+            result.sac_row_count,
+            result.timestamp_count,
+        )

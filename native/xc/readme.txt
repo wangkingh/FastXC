@@ -1,33 +1,36 @@
 XC Native Read/Write Model
 ==========================
 
-This backend computes cross correlations from XCache `.xcspec` shards.
+This backend computes cross correlations from SAC2SPEC stepack v3 batch files.
 The current production-oriented data path is:
 
-  SAC / spack -> xcache -> native XC -> xcpack -> host finalize
+  SAC / stepack -> native XC -> xcpack -> host finalize
 
 
 Input
 -----
 
-XC accepts either an index of timestamp shards or one shard directly:
+XC accepts a stepack workspace or one stepack TSV:
 
-  -I <xcspec_index.tsv>
-  --timestamp <one.xcspec>
+  -I <stepack_dir>
+  -I <stepack.tsv>
 
-Each `.xcspec` file contains:
+Each stepack v3 TSV row is a timestamp fragment inside one worker-batch
+`.stepack` file.  Native XC groups rows by timestamp, opens all fragments for
+that timestamp, merges their NSLC tables by NSL id, and reads the needed step
+slices into the same logical input buffer.  This handles timestamps whose NSLC
+rows span adjacent batch files.
 
-  header
-  source table
-  step-major complex spectrum payload
+When memory permits, stepack input is first assembled into the logical host
+payload layout expected by the XC worker:
 
-The payload layout is optimized for reading one time step as a contiguous
-block.  For small shards XC may cache the whole payload in host memory;
-otherwise workers read step blocks with `pread`.
+  [step][logical_nslc][freq]
 
-`-P <allowed_paths.tsv>` is the pair policy table.  It maps source/receiver
-station ids to the canonical pair metadata used by the output header and
-final path.
+The worker then reads steps from that host cache.  If allocation or a fragment
+read fails, XC falls back to direct `pread` from the underlying stepack files.
+
+`-P <allowed_paths.tsv>` is the pair policy table.  It maps NSL pair ids to
+the canonical pair metadata used by the output header and final path.
 
 
 GPU Workers and Memory
@@ -54,28 +57,15 @@ Host RAM is also considered during automatic block sizing.  XC reads
 `MemAvailable` from `/proc/meminfo` when possible, uses 80% of that value as
 the total host budget, and divides it across the configured GPU workers.  This
 budget covers the resident per-worker host staging, index, CC, and lazy-write
-buffers; optional xcspec payload caching still falls back to `pread` if its
-allocation fails.
-
-
-Output Modes
-------------
-
-`--write-mode append`
-  Compatibility mode.  Native XC writes final pair `.bigsac` files directly.
-  Existing files are appended to.
-
-`--write-mode aggregate`
-  Compatibility mode.  Native XC reads an existing final `.bigsac`, adds the
-  new trace, and writes the aggregate result back.
-
-`--write-mode pack`
-  Recommended high-throughput mode.  Native XC writes job-local pack files and
-  a TSV sidecar instead of creating one small file per pair.
+buffers; optional stepack logical-payload caching still falls back to `pread`
+if its allocation fails.
 
 
 Pack Output
 -----------
+
+Native XC writes job-local pack files and TSV sidecars.  It does not create
+final pair SAC files directly.
 
 Pack output is written under:
 
@@ -105,7 +95,7 @@ The TSV sidecar records:
   pack_path
   offset
   bytes
-  source and receiver metadata
+  NSLC pair metadata
   npts
   dt
   dist
@@ -113,10 +103,10 @@ The TSV sidecar records:
   baz
   final_pair_path
 
-`final_pair_path` is the old `.bigsac` destination path.  Pack mode keeps this
-path in the sidecar but does not materialize the file in native code.  A host
-finalize step should group TSV rows by `final_pair_path`, seek/read records by
-`pack_path + offset + bytes`, and then perform append or aggregate semantics.
+`final_pair_path` is the canonical final pair destination.  Native XC keeps this
+path in the sidecar but does not materialize the file.  A host finalize step
+groups TSV rows by `final_pair_path`, seek/reads records by
+`pack_path + offset + bytes`, and materializes the final sourcepack output.
 
 Native pack writing buffers records before flushing:
 

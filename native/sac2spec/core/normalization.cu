@@ -1,7 +1,8 @@
 #include "normalization.cuh"
 #include "spectrum.cuh"
+#include "smoothing.cuh"
 
-#include "../kernels/misc.cuh"
+#include "../kernels/real_matrix.cuh"
 #include "cuda.util.cuh"
 
 #include <limits.h>
@@ -156,8 +157,8 @@ static int runabsNormalizeSharedWeight(float *d_data,
             return -1;
         }
 
-        LaunchSmooth2D(d_tmp_weight, pitch, d_weight, pitch,
-                       pitch, frame_count, winsize);
+        launch_smooth_rows(d_tmp_weight, pitch, d_weight, pitch,
+                           pitch, frame_count, winsize);
         if (kernelOk("runabs_smooth") != 0)
         {
             return -1;
@@ -231,9 +232,9 @@ int runabs(float *d_data,
 int runabs_mf(float *d_sacdata,
                               float *d_filtered_sacdata,
                               float *d_total_sacdata,
-                              float *d_sacdata_2x,
-                              cuComplex *d_spectrum_2x,
-                              cuComplex *d_base_spectrum_2x,
+                              float *d_padded_sacdata,
+                              cuComplex *d_padded_spectrum,
+                              cuComplex *d_base_padded_spectrum,
                               float *d_responses,
                               float *d_tmp,
                               float *d_weight,
@@ -244,34 +245,34 @@ int runabs_mf(float *d_sacdata,
                               int frame_count,
                               int num_ch,
                               float maxval,
-                              int nseg_1x,
+                              int segment_pts,
                               int filter_nfft,
                               int plan_batch,
                               cufftHandle *planinv_filter,
                               cufftHandle *planfwd_filter)
 {
     if (d_sacdata == NULL || d_filtered_sacdata == NULL ||
-        d_total_sacdata == NULL || d_sacdata_2x == NULL ||
-        d_spectrum_2x == NULL || d_base_spectrum_2x == NULL ||
+        d_total_sacdata == NULL || d_padded_sacdata == NULL ||
+        d_padded_spectrum == NULL || d_base_padded_spectrum == NULL ||
         d_responses == NULL || d_tmp == NULL || d_weight == NULL ||
         d_tmp_weight == NULL || freq_lows == NULL ||
         planinv_filter == NULL || planfwd_filter == NULL ||
         filter_count <= 0 || delta <= 0.0f || frame_count <= 0 ||
-        num_ch <= 0 || maxval <= 0.0f || nseg_1x <= 0 ||
+        num_ch <= 0 || maxval <= 0.0f || segment_pts <= 0 ||
         filter_nfft <= 0 || plan_batch < frame_count ||
         frame_count > INT_MAX / num_ch)
     {
         LOG_ERROR("core_runabs_mf_invalid_input",
-                  "sac=%p filtered=%p total=%p sac2x=%p spectrum2x=%p base=%p responses=%p tmp=%p weight=%p tmp_weight=%p freq_lows=%p filter_count=%d delta=%.8g frame_count=%d num_ch=%d maxval=%.8g nseg_1x=%d filter_nfft=%d plan_batch=%d",
+                  "sac=%p filtered=%p total=%p padded_sac=%p padded_spectrum=%p base_padded_spectrum=%p responses=%p tmp=%p weight=%p tmp_weight=%p freq_lows=%p filter_count=%d delta=%.8g frame_count=%d num_ch=%d maxval=%.8g segment_pts=%d filter_nfft=%d plan_batch=%d",
                   d_sacdata, d_filtered_sacdata, d_total_sacdata,
-                  d_sacdata_2x, d_spectrum_2x, d_base_spectrum_2x,
+                  d_padded_sacdata, d_padded_spectrum, d_base_padded_spectrum,
                   d_responses, d_tmp, d_weight, d_tmp_weight, freq_lows,
                   filter_count, delta, frame_count, num_ch, maxval,
-                  nseg_1x, filter_nfft, plan_batch);
+                  segment_pts, filter_nfft, plan_batch);
         return -1;
     }
 
-    size_t twidth = (size_t)nseg_1x;
+    size_t twidth = (size_t)segment_pts;
     size_t proc_cnt = (size_t)frame_count * (size_t)num_ch;
     size_t plan_cnt = (size_t)plan_batch * (size_t)num_ch;
 
@@ -284,13 +285,13 @@ int runabs_mf(float *d_sacdata,
     if (cudaOk(cudaMemset(d_total_sacdata, 0,
                           proc_cnt * twidth * sizeof(float)),
                "runabs_mf_memset_total") != 0 ||
-        cudaOk(cudaMemset(d_sacdata_2x, 0,
+        cudaOk(cudaMemset(d_padded_sacdata, 0,
                           plan_cnt * filter_width * sizeof(float)),
-               "runabs_mf_memset_sac2x") != 0 ||
-        cudaOk(cudaMemset(d_base_spectrum_2x, 0,
+               "runabs_mf_memset_padded_sac") != 0 ||
+        cudaOk(cudaMemset(d_base_padded_spectrum, 0,
                           plan_cnt * filter_width * sizeof(cuComplex)),
                "runabs_mf_memset_base_spectrum") != 0 ||
-        cudaOk(cudaMemcpy2D(d_sacdata_2x, filter_width * sizeof(float),
+        cudaOk(cudaMemcpy2D(d_padded_sacdata, filter_width * sizeof(float),
                             d_sacdata, twidth * sizeof(float),
                             twidth * sizeof(float), proc_cnt,
                             cudaMemcpyDeviceToDevice),
@@ -299,14 +300,14 @@ int runabs_mf(float *d_sacdata,
         return -1;
     }
 
-    if (cufftOk(cufftExecR2C(*planfwd_filter, (cufftReal *)d_sacdata_2x,
-                             (cufftComplex *)d_base_spectrum_2x),
+    if (cufftOk(cufftExecR2C(*planfwd_filter, (cufftReal *)d_padded_sacdata,
+                             (cufftComplex *)d_base_padded_spectrum),
                 "runabs_mf_forward_filter_fft") != 0)
     {
         return -1;
     }
 
-    if (fft_forward_normalize(d_base_spectrum_2x,
+    if (fft_forward_normalize(d_base_padded_spectrum,
                                           filter_width,
                                           filter_fwidth,
                                           proc_cnt, delta) != 0)
@@ -314,7 +315,7 @@ int runabs_mf(float *d_sacdata,
         return -1;
     }
 
-    if (complex_sanitize(d_base_spectrum_2x,
+    if (complex_sanitize(d_base_padded_spectrum,
                                          filter_width,
                                          filter_fwidth,
                                          proc_cnt) != 0)
@@ -324,11 +325,11 @@ int runabs_mf(float *d_sacdata,
 
     for (int i = 1; i < filter_count; i++)
     {
-        if (cudaOk(cudaMemset(d_spectrum_2x, 0,
+        if (cudaOk(cudaMemset(d_padded_spectrum, 0,
                               plan_cnt * filter_width * sizeof(cuComplex)),
                    "runabs_mf_memset_work_spectrum") != 0 ||
-            cudaOk(cudaMemcpy2D(d_spectrum_2x, filter_width * sizeof(cuComplex),
-                                d_base_spectrum_2x, filter_width * sizeof(cuComplex),
+            cudaOk(cudaMemcpy2D(d_padded_spectrum, filter_width * sizeof(cuComplex),
+                                d_base_padded_spectrum, filter_width * sizeof(cuComplex),
                                 filter_fwidth * sizeof(cuComplex), proc_cnt,
                                 cudaMemcpyDeviceToDevice),
                    "runabs_mf_copy_base_spectrum") != 0)
@@ -336,7 +337,7 @@ int runabs_mf(float *d_sacdata,
             return -1;
         }
 
-        if (apply_filter_response(d_spectrum_2x,
+        if (apply_filter_response(d_padded_spectrum,
                                                   d_responses + (size_t)i * filter_width,
                                                   filter_width,
                                                   filter_fwidth,
@@ -345,14 +346,14 @@ int runabs_mf(float *d_sacdata,
             return -1;
         }
 
-        if (cufftOk(cufftExecC2R(*planinv_filter, (cufftComplex *)d_spectrum_2x,
-                                 (cufftReal *)d_sacdata_2x),
+        if (cufftOk(cufftExecC2R(*planinv_filter, (cufftComplex *)d_padded_spectrum,
+                                 (cufftReal *)d_padded_sacdata),
                     "runabs_mf_inverse_filter_fft") != 0)
         {
             return -1;
         }
 
-        if (fft_inverse_normalize(d_sacdata_2x,
+        if (fft_inverse_normalize(d_padded_sacdata,
                                               filter_width,
                                               filter_width,
                                               proc_cnt,
@@ -362,7 +363,7 @@ int runabs_mf(float *d_sacdata,
         }
 
         if (cudaOk(cudaMemcpy2D(d_filtered_sacdata, twidth * sizeof(float),
-                                d_sacdata_2x, filter_width * sizeof(float),
+                                d_padded_sacdata, filter_width * sizeof(float),
                                 twidth * sizeof(float), proc_cnt,
                                 cudaMemcpyDeviceToDevice),
                    "runabs_mf_copy_filtered_back") != 0)
@@ -374,7 +375,7 @@ int runabs_mf(float *d_sacdata,
                                                d_weight, d_tmp_weight,
                                                freq_lows[i], delta,
                                                frame_count, num_ch,
-                                               nseg_1x, maxval) != 0)
+                                               segment_pts, maxval) != 0)
         {
             return -1;
         }

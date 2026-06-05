@@ -7,6 +7,7 @@
 typedef struct TaskQueue
 {
     size_t next_group;
+    size_t next_batch_seq;
     size_t total_groups;
     pthread_mutex_t mutex;
 } TaskQueue;
@@ -14,6 +15,7 @@ typedef struct TaskQueue
 void TaskQueueInit(TaskQueue *queue, size_t total_groups);
 void TaskQueueDestroy(TaskQueue *queue);
 int TaskQueuePop(TaskQueue *queue, size_t capacity,
-                 size_t *start_group, size_t *group_count);
+                 size_t *start_group, size_t *group_count,
+                 size_t *batch_seq);
 
 #endif

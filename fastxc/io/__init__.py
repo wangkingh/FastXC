@@ -12,14 +12,6 @@ from .sac_binary import (
     read_sac_record_from,
     write_sac,
 )
-from .xcspec import (
-    XCSPEC_DTYPE_COMPLEX64,
-    XCSPEC_HEADER_SIZE,
-    XCSPEC_LAYOUT_STEP_FILE_FREQ,
-    XCSPEC_MAGIC,
-    XCSPEC_SOURCE_ENTRY_SIZE,
-    XCSPEC_VERSION,
-)
 from .sourcepack import (
     SOURCEPACK_INDEX_HEADER,
     XcPackRecord,
@@ -39,12 +31,6 @@ __all__ = [
     "read_sac_record",
     "read_sac_record_from",
     "write_sac",
-    "XCSPEC_DTYPE_COMPLEX64",
-    "XCSPEC_HEADER_SIZE",
-    "XCSPEC_LAYOUT_STEP_FILE_FREQ",
-    "XCSPEC_MAGIC",
-    "XCSPEC_SOURCE_ENTRY_SIZE",
-    "XCSPEC_VERSION",
     "SOURCEPACK_INDEX_HEADER",
     "XcPackRecord",
     "discover_sourcepack_indexes",

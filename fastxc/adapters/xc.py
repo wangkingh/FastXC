@@ -28,26 +28,25 @@ def _format_gpu_memory_mib(limits: Sequence[float] | None) -> str | None:
 
 def _build_xc_args(
     *,
-    xcspec_index_file: str | Path,
+    xc_input_path: str | Path,
     allowed_paths_file: str | Path,
     ncf_dir: str | Path,
     cclength: float | int,
     gpu_ids: Sequence[int],
-    cpu_workers: int,
     gpu_memory_mib: Sequence[float] | None = None,
     progress_file: str | Path | None = None,
     debug_mode: bool = False,
 ) -> list[str]:
-    xcspec_index = Path(xcspec_index_file).expanduser().resolve()
+    xc_input = Path(xc_input_path).expanduser().resolve()
     allowed_paths = Path(allowed_paths_file).expanduser().resolve()
-    if not xcspec_index.is_file():
-        raise FileNotFoundError(f"XC xcspec index not found: {xcspec_index}")
+    if not xc_input.exists():
+        raise FileNotFoundError(f"XC input not found: {xc_input}")
     if not allowed_paths.is_file():
         raise FileNotFoundError(f"XC allowed path table not found: {allowed_paths}")
 
     args = [
         "-I",
-        xcspec_index.as_posix(),
+        xc_input.as_posix(),
         "-P",
         allowed_paths.as_posix(),
         "-O",
@@ -56,10 +55,6 @@ def _build_xc_args(
         str(cclength),
         "-G",
         _format_gpu_list(gpu_ids),
-        "-T",
-        str(max(1, int(cpu_workers))),
-        "--write-mode",
-        "3",
     ]
     gpu_memory_list = _format_gpu_memory_mib(gpu_memory_mib)
     if gpu_memory_list is not None:
@@ -73,18 +68,17 @@ def _build_xc_args(
 
 def gen_xc_cmd(
     *,
-    xcspec_index_file: str | Path,
+    xc_input_path: str | Path,
     allowed_paths_file: str | Path,
     output_dir: str | Path,
     xc_exe: str | Path,
     ncf_dir: str | Path,
     cclength: float | int,
     gpu_ids: Sequence[int],
-    cpu_workers: int,
     debug_mode: bool = False,
     gpu_memory_mib: Sequence[float] | None = None,
 ) -> list[str]:
-    """Generate one XC command from the prepared xcache index."""
+    """Generate one XC command from the SAC2SPEC stepack workspace."""
     progress_dir = Path(output_dir).expanduser().resolve() / "progress"
     progress_dir.mkdir(parents=True, exist_ok=True)
     progress_file = progress_dir / "xc_progress.tsv"
@@ -92,19 +86,18 @@ def gen_xc_cmd(
         progress_file.unlink()
 
     args = _build_xc_args(
-        xcspec_index_file=xcspec_index_file,
+        xc_input_path=xc_input_path,
         allowed_paths_file=allowed_paths_file,
         ncf_dir=ncf_dir,
         cclength=cclength,
         gpu_ids=gpu_ids,
         gpu_memory_mib=gpu_memory_mib,
-        cpu_workers=cpu_workers,
         progress_file=progress_file,
         debug_mode=debug_mode,
     )
     cmd = shlex.join([str(xc_exe), *args])
     review_path = write_command_review(output_dir, "xc", [cmd])
-    logger.info("Built one XC command from xcache index.")
+    logger.info("Built one XC command.")
     logger.info("XC command review file: %s", review_path)
     return [cmd]
 

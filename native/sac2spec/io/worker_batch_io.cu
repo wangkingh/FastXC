@@ -3,8 +3,7 @@
 #include "progress.hpp"
 #include "sac2spec_plan.hpp"
 #include "parallel_io.h"
-#include "spack_writer.h"
-#include "timestamp_tracker.hpp"
+#include "stepack_writer.h"
 
 #include <string.h>
 
@@ -66,31 +65,14 @@ int WriteWorkerBatchOutput(WorkerBatch *batch)
     }
 
     LOG_INFO("worker_batch_output_write_start",
-             "gpu=%d slot=%d start_group=%zu group_count=%zu file_rows=%zu first_timestamp=\"%s\"",
-             worker->gpu_id, batch->slot_index, batch->start_group, batch->group_count,
-             batch->file_rows,
+             "gpu=%d slot=%d batch_seq=%zu start_group=%zu group_count=%zu file_rows=%zu first_timestamp=\"%s\"",
+             worker->gpu_id, batch->slot_index, batch->batch_seq,
+             batch->start_group, batch->group_count, batch->file_rows,
              batch->file_rows > 0 ? slot->nodes[0].meta->timestamp : "");
 
-    int status = 0;
-    for (size_t i = 0; i < batch->file_rows; i++)
-    {
-        if (SpackWriterAppend(worker->spack_writer, &slot->nodes[i]) != 0)
-        {
-            status = -1;
-            break;
-        }
-    }
-    if (status == 0 && SpackWriterCloseBatch(worker->spack_writer) != 0)
-    {
-        status = -1;
-    }
-    if (status == 0 &&
-        TimestampTrackerMarkBatchDone(worker->plan->timestamp_tracker,
-                                      batch->start_group,
-                                      batch->group_count) != 0)
-    {
-        status = -1;
-    }
+    int status = StepackWriterAppendBatch(worker->stepack_writer, slot->nodes,
+                                          batch->file_rows, batch->batch_seq,
+                                          batch->start_group, batch->group_count);
 
     if (status != 0)
     {
@@ -103,8 +85,8 @@ int WriteWorkerBatchOutput(WorkerBatch *batch)
                 batch->start_group, batch->group_count);
 
     LOG_INFO("worker_batch_output_write_done",
-             "gpu=%d slot=%d start_group=%zu group_count=%zu file_rows=%zu",
-             worker->gpu_id, batch->slot_index, batch->start_group, batch->group_count,
-             batch->file_rows);
+             "gpu=%d slot=%d batch_seq=%zu start_group=%zu group_count=%zu file_rows=%zu",
+             worker->gpu_id, batch->slot_index, batch->batch_seq,
+             batch->start_group, batch->group_count, batch->file_rows);
     return 0;
 }

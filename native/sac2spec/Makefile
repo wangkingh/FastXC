@@ -27,11 +27,13 @@ CUDAOBJS = \
     cuda.main.o
 
 KERNELOBJS = \
-    kernels/misc.o \
+    kernels/real_matrix.o \
+    kernels/complex_matrix.o \
     kernels/rdcrtr.o \
     kernels/taper.o
 
 CORECUDAOBJS = \
+    core/smoothing.o \
     core/normalization.o \
     core/preprocess.o \
     core/spectrum.o
@@ -43,7 +45,7 @@ OBJS = \
     logger.o \
     io/io_pool.o \
     io/parallel_io.o \
-    io/spack_writer.o \
+    io/stepack_writer.o \
     io/sac_index.o \
     io/sacio.o \
     io/sacio_legacy.o \

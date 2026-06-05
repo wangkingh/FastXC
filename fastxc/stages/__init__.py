@@ -17,7 +17,6 @@ from .sourcepack import SourcePackStage
 from .stack import LinearStackStage, WeightedStackStage
 from .unpack import UnpackStage
 from .xc import CrossCorrelationStage
-from .xcache import XCacheStage
 
 
 def prepare_stages():
@@ -30,7 +29,6 @@ def prepare_stages():
 def compute_stages():
     return [
         Sac2SpecStage(),
-        XCacheStage(),
         CrossCorrelationStage(),
         SourcePackStage(),
         LinearStackStage(),

@@ -3,7 +3,7 @@
 #include "core/filter_response.h"
 #include "include/device_memory.cuh"
 #include "io/parallel_io.h"
-#include "io/spack_writer.h"
+#include "io/stepack_writer.h"
 
 #include <limits.h>
 #include <stdlib.h>
@@ -29,7 +29,7 @@ static void InitWorkerHostSlot(GpuWorker *worker, WorkerHostSlot *slot, int slot
         CpuMalloc((void **)&(slot->nodes[i].sac_hd), sachdSize);
 
         slot->nodes[i].sac_data = slot->h_sacdata + i * plan->npts;
-        slot->nodes[i].spectrum = slot->h_spectrum + i * plan->nstep_valid * plan->nspec_output;
+        slot->nodes[i].spectrum = slot->h_spectrum + i * plan->nspec_output;
 
         slot->nodes[i].nspec = plan->nspec_output;
         slot->nodes[i].nstep = plan->nstep_valid;
@@ -85,9 +85,9 @@ void InitWorkerHostMemory(GpuWorker *worker)
     }
 
     worker->read_pool = CreateReadIoPool((size_t)worker->io_threads);
-    worker->spack_writer = CreateSpackWriter(plan->spack_root,
+    worker->stepack_writer = CreateStepackWriter(plan->stepack_root,
                                              worker->worker_index);
-    if (worker->read_pool == NULL || worker->spack_writer == NULL)
+    if (worker->read_pool == NULL || worker->stepack_writer == NULL)
     {
         LOG_ERROR("worker_io_group_init_failed", "gpu=%d io_threads=%d",
                   worker->gpu_id, worker->io_threads);
@@ -97,10 +97,10 @@ void InitWorkerHostMemory(GpuWorker *worker)
 
 void FreeWorkerHostMemory(GpuWorker *worker)
 {
-    if (worker->spack_writer != NULL)
+    if (worker->stepack_writer != NULL)
     {
-        DestroySpackWriter(worker->spack_writer);
-        worker->spack_writer = NULL;
+        DestroyStepackWriter(worker->stepack_writer);
+        worker->stepack_writer = NULL;
     }
     if (worker->read_pool != NULL)
     {
@@ -137,8 +137,8 @@ void InitWorkerDeviceMemory(GpuWorker *worker)
                       plan->num_ch, plan->do_runabs, plan->do_runabs_mf,
                       plan->wh_flag,
                       &worker->d_sacdata, &worker->d_spectrum,
-                      &worker->d_sacdata_2x, &worker->d_spectrum_2x,
-                      &worker->d_base_spectrum_2x,
+                      &worker->d_padded_sacdata, &worker->d_padded_spectrum,
+                      &worker->d_base_padded_spectrum,
                       &worker->d_filtered_sacdata,
                       &worker->d_total_sacdata,
                       &worker->d_responses, &worker->d_tmp,
@@ -174,9 +174,9 @@ void FreeWorkerDeviceMemory(GpuWorker *worker)
     GpuFree((void **)&worker->d_cufft_work);
     GpuFree((void **)&worker->d_sacdata);
     GpuFree((void **)&worker->d_spectrum);
-    GpuFree((void **)&worker->d_sacdata_2x);
-    GpuFree((void **)&worker->d_spectrum_2x);
-    GpuFree((void **)&worker->d_base_spectrum_2x);
+    GpuFree((void **)&worker->d_padded_sacdata);
+    GpuFree((void **)&worker->d_padded_spectrum);
+    GpuFree((void **)&worker->d_base_padded_spectrum);
     GpuFree((void **)&worker->d_filtered_sacdata);
     GpuFree((void **)&worker->d_total_sacdata);
     GpuFree((void **)&worker->d_responses);

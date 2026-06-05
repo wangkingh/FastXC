@@ -86,7 +86,7 @@ static bool parse_legacy_timestamp_text(const std::string &timestamp,
   return true;
 }
 
-static bool parse_xcache_timestamp_text(const std::string &timestamp,
+static bool parse_modern_timestamp_text(const std::string &timestamp,
                                         XcTimeData *time_info)
 {
   int year = 0, month = 0, day = 0, hour = 0, minute = 0;
@@ -145,7 +145,7 @@ bool parse_timestamp_text(const std::string &timestamp, XcTimeData *time_info)
 {
   memset(time_info, 0, sizeof(*time_info));
   return parse_legacy_timestamp_text(timestamp, time_info) ||
-         parse_xcache_timestamp_text(timestamp, time_info);
+         parse_modern_timestamp_text(timestamp, time_info);
 }
 
 static void copy_sac_text(char *dst, size_t dst_size, const std::string &src)

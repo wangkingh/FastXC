@@ -17,8 +17,7 @@ workspace_dir/
   progress/
   manifest/
   path_plan/
-  spack_by_timestamp/
-  xcache/
+  stepack/
   ncf/
   sourcepack/
   stack/
@@ -26,9 +25,7 @@ workspace_dir/
 ```
 
 并非每次运行都会出现所有目录。例如用户可以关闭
-`[advance.storage].unpack_enabled` 跳过 SAC 导出；如果
-`xcache_cleanup_timestamp_spack = True`，`spack_by_timestamp/<timestamp>`
-会在 xcache 构建完成后被清理。
+`[advance.storage].unpack_enabled` 跳过 SAC 导出。
 
 ## `prepare`
 
@@ -56,26 +53,14 @@ SAC2SPEC 会把 SAC 时域数据切窗、预处理并转换为频域 SEGSPEC。
 | 路径 | 说明 |
 | --- | --- |
 | `filter.txt` | 本次频带和预处理参数对应的 filter 描述。 |
-| `spack_by_timestamp/<timestamp>/` | 按时间片写出的 `.spack` 二进制和 TSV sidecar。 |
-| `spack_by_timestamp/_SUCCESS` | SAC2SPEC 阶段完成标记。 |
+| `stepack/w<worker>.b<batch>.stepack` | 按 worker batch 写出的 step-major 频谱二进制。 |
+| `stepack/w<worker>.b<batch>.tsv` | 同一 batch 内 timestamp 虚拟切片索引。 |
+| `stepack/_SUCCESS` | SAC2SPEC 阶段完成标记。 |
 | `progress/sac2spec_progress.tsv` | SAC2SPEC 进度侧写文件。 |
 
-`.spack` 是中间产物。若 `[advance.compute].xcache_cleanup_timestamp_spack = True`，
-每个时间片对应的 spack 在 xcache 成功后可以被自动删除。
-
-## `run`: XCache
-
-XCache 把每个时间片的 SEGSPEC 整理成 native XC 更适合读取的 shard。
-
-| 路径 | 说明 |
-| --- | --- |
-| `xcache/<timestamp>.xcspec` | native XC 输入二进制。 |
-| `xcache/<timestamp>.xcspec.json` | xcache 元数据。 |
-| `xcache/xcspec_index.tsv` | xcache 全局索引。 |
-| `xcache/_cleanup/spack_ready/*.ready` | spack 清理协调文件。 |
-| `xcache/_SUCCESS` | XCache 阶段完成标记。 |
-| `progress/xcache_progress.tsv` | XCache 构建进度。 |
-| `progress/spack_sweeper_progress.tsv` | spack 清理进度。 |
+`stepack` 是 XC 的直接输入。二进制 payload 按 `[step][batch_nslc][freq]`
+连续存储；TSV sidecar 记录 timestamp、pack path、NSLC 范围、字节范围和
+pitch 元数据，供 native XC 拼出虚拟 timestamp 视图。
 
 ## `run`: XC
 
@@ -105,7 +90,8 @@ SourcePack 不复制互相关数据本体，而是把 XC pack 中的记录按 so
 | `progress/sourcepack_progress.tsv` | SourcePack 构建进度。 |
 
 `sourcepack_index.tsv` 中的 `record_path`、`record_offset`、`bytes` 指向真实
-pack 记录；这也是分析脚本和后续叠加读取数据的入口。
+pack 记录；这也是分析脚本和后续叠加读取数据的入口。XC 后的 SourcePack 主要
+是对 `ncf/xcpack` 的索引视图，不复制互相关 payload。
 
 ## `run`: Stack
 
@@ -121,6 +107,11 @@ pack 记录；这也是分析脚本和后续叠加读取数据的入口。
 
 `stack_flag` 三位依次控制 linear/PWS/TF-PWS。例如 `100` 只会产生
 `linearstack_sourcepack`。
+
+stack 后的 SourcePack 是物化结果：pack 文件中已经是叠加后的新 trace。
+linear stack 当前写一个 `linearstack.pack`；PWS 和 TF-PWS 由 GPU worker 并行
+写出，可能包含 `pws.w000.pack`、`tfpws.w000.pack` 这类 worker shard pack，
+最终仍通过统一的 `sourcepack_index.tsv` 读取。
 
 ## `run`: Rotate
 
@@ -170,13 +161,19 @@ stack 结果导出为传统 SAC 文件；如果只想保留紧凑的 SourcePack 
 
 通常只提交源码、配置示例和文档。不要提交大型运行产物：
 
-- `example/*/workspace*/`
-- `spack_by_timestamp/`
-- `xcache/`
+- `config.snapshot.ini`、`inventory.meta.json`、`filter.txt`
+- `manifest/`
+- `path_plan/`
+- `workspace*/`
+- `stepack/`
 - `ncf/`
 - `sourcepack/`
 - `stack/`
+- `rotate/`
 - `result_ncf/`
+- `ncf_<method>_<component_frame>/`
+- native 编译产物和 `bin/`
 - 生成的 `plots/`
+- 私有测试配置、私有台站表和本机路径
 
 这些目录已经在项目 `.gitignore` 中按公开仓库用途忽略。

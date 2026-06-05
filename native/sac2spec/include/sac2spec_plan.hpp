@@ -18,7 +18,7 @@ typedef struct Sac2SpecPlan
     SacIndexMetaArray meta;
     ProgressState *progress;
     TimestampTracker *timestamp_tracker;
-    const char *spack_root;
+    const char *stepack_root;
 
     int num_ch;
     int npts;

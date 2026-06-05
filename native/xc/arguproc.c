@@ -1,5 +1,4 @@
 #include "arguproc.h"
-#include "include/write_mode.h"
 #include "logger.h"
 
 #include <errno.h>
@@ -163,32 +162,10 @@ static void parse_gpu_memory_limits(ARGUTYPE *parg)
   parg->gpu_mem_limit_set = 1;
 }
 
-static int parse_write_mode_token(const char *text, int *out)
-{
-  if (strcmp(text, "1") == 0 || strcasecmp(text, "append") == 0)
-  {
-    *out = MODE_APPEND;
-    return 1;
-  }
-  if (strcmp(text, "2") == 0 || strcasecmp(text, "aggregate") == 0)
-  {
-    *out = MODE_AGGREGATE;
-    return 1;
-  }
-  if (strcmp(text, "3") == 0 || strcasecmp(text, "pack") == 0)
-  {
-    *out = MODE_PACK;
-    return 1;
-  }
-  return 0;
-}
-
 void ArgumentProcess(int argc, char **argv, ARGUTYPE *parg)
 {
   memset(parg, 0, sizeof(*parg));
   parg->gpu_id_text = (char *)"0";
-  parg->cpu_count = 1;
-  parg->write_mode = MODE_APPEND;
   parg->gpu_mem_limit_text = NULL;
   parg->gpu_mem_limit_count = 0;
   parg->gpu_mem_limit_set = 0;
@@ -205,18 +182,19 @@ void ArgumentProcess(int argc, char **argv, ARGUTYPE *parg)
   for (int i = 1; i < argc; ++i)
   {
     const char *opt = argv[i];
-    if (strcmp(opt, "-I") == 0)
-      parg->timestamp_index_path = need_value(argc, argv, &i, opt);
-    else if (strcmp(opt, "--timestamp") == 0 || strcmp(opt, "--single-timestamp") == 0)
-      parg->single_timestamp_path = need_value(argc, argv, &i, opt);
+    if (strcmp(opt, "-h") == 0 || strcmp(opt, "--help") == 0)
+    {
+      usage();
+      exit(0);
+    }
+    else if (strcmp(opt, "-I") == 0)
+      parg->input_path = need_value(argc, argv, &i, opt);
     else if (strcmp(opt, "-O") == 0)
       parg->ncf_dir = need_value(argc, argv, &i, opt);
     else if (strcmp(opt, "-C") == 0)
       parg->cclength = (float)atof(need_value(argc, argv, &i, opt));
     else if (strcmp(opt, "-G") == 0)
       parg->gpu_id_text = need_value(argc, argv, &i, opt);
-    else if (strcmp(opt, "-T") == 0)
-      parg->cpu_count = (size_t)atoi(need_value(argc, argv, &i, opt));
     else if (strcmp(opt, "-M") == 0)
       parg->gpu_mem_limit_text = need_value(argc, argv, &i, opt);
     else if (strcmp(opt, "-P") == 0)
@@ -225,15 +203,6 @@ void ArgumentProcess(int argc, char **argv, ARGUTYPE *parg)
       parg->lazy_write_depth = (size_t)atoi(need_value(argc, argv, &i, opt));
     else if (strcmp(opt, "--progress") == 0 || strcmp(opt, "--progress-file") == 0)
       parg->progress_file = need_value(argc, argv, &i, opt);
-    else if (strcmp(opt, "--write-mode") == 0)
-    {
-      const char *value = need_value(argc, argv, &i, opt);
-      if (!parse_write_mode_token(value, &parg->write_mode))
-      {
-        LOG_ERROR("write_mode_invalid", "value=\"%s\"", value);
-        exit(1);
-      }
-    }
     else if (strcmp(opt, "--debug") == 0)
       debug_requested = 1;
     else
@@ -254,21 +223,13 @@ void ArgumentProcess(int argc, char **argv, ARGUTYPE *parg)
     exit(1);
   }
 
-  if (!parg->timestamp_index_path && !parg->single_timestamp_path)
+  if (!parg->input_path)
   {
-    LOG_ERROR("timestamp_input_missing", "required=\"-I or --timestamp\"");
-    usage();
-    exit(1);
-  }
-  if (parg->timestamp_index_path && parg->single_timestamp_path)
-  {
-    LOG_ERROR("timestamp_input_conflict", "options=\"-I,--timestamp\"");
+    LOG_ERROR("timestamp_input_missing", "required=\"-I\"");
     usage();
     exit(1);
   }
 
-  if (parg->cpu_count == 0)
-    parg->cpu_count = 1;
   if (debug_requested)
     parg->lazy_write_depth = 0;
 }
@@ -277,10 +238,9 @@ void usage(void)
 {
   fprintf(stderr,
           "\nUsage:\n"
-          "  xc_fast -I xcspec_index.tsv -P allowed_paths.tsv -O out -C sec [options]\n\n"
+          "  xc_fast -I <stepack_dir|stepack.tsv> -P allowed_paths.tsv -O out -C sec [options]\n\n"
           "Input:\n"
-          "  -I <file>            XCache xcspec_index.tsv\n"
-          "  --timestamp <file>   Process one .xcspec shard directly\n"
+          "  -I <path>            Stepack directory or stepack TSV sidecar\n"
           "  -P <file>            Canonical allowed path table\n"
           "  -O <dir>             Output root\n"
           "  -C <sec>             Half CC length\n\n"
@@ -289,8 +249,6 @@ void usage(void)
           "  -M <MiB,...>         Per-worker VRAM caps matching -G; 0 means auto\n"
           "                       Auto budget = 0.90*free/workers_on_same_gpu\n"
           "                       Host RAM auto budget = 0.80*MemAvailable/workers\n"
-          "  -T <num>             Direct-output write threads per worker\n"
-          "                       pack mode uses one pack writer per worker\n"
           "  -J <num>             Lazy write queue depth per worker (default 1, 0 sync)\n"
           "  --debug              Disable lazy write for easier native debugging\n"
           "  --progress <file>    Write progress sidecar TSV\n\n"
@@ -299,8 +257,5 @@ void usage(void)
           "  XC_LOG_LEVEL is honored when FASTXC_LOG_LEVEL is unset\n"
           "  SAC2SPEC_LOG_LEVEL remains accepted as a legacy fallback\n\n"
           "Output:\n"
-          "  --write-mode <append|aggregate|pack|1|2|3>\n"
-          "      append     write final .bigsac files directly\n"
-          "      aggregate  read/add/rewrite final .bigsac files directly\n"
-          "      pack       write <output>/xcpack/*.xcpack + *.tsv sidecars\n\n");
+          "  Writes <output>/xcpack/*.xcpack + *.tsv sidecars.\n\n");
 }
