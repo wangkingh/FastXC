@@ -320,6 +320,27 @@ size_t estimate_block_files_for_worker(const ARGUTYPE *args,
              worker_index);
   }
 
+  MemoryPlan min_plan;
+  if (!compute_memory_plan(1, shape, args->lazy_write_depth, &min_plan))
+  {
+    LOG_ERROR("worker_min_block_plan_invalid",
+              "worker=%zu physical_gpu_id=%zu block_files=1 num_ch=%zu",
+              worker_index, gpu_id, shape->num_channels);
+    exit(1);
+  }
+  if (!fits_block(1, shape, args->lazy_write_depth, usable,
+                  host_budget_active, host_worker_budget, &min_plan))
+  {
+    LOG_ERROR("worker_budget_too_small_for_min_block",
+              "worker=%zu physical_gpu_id=%zu block_files=1 num_ch=%zu required_gpu_gib=%.3f final_worker_gpu_budget_gib=%.3f required_host_gib=%.3f final_worker_host_budget_gib=%.3f host_budget_active=%s",
+              worker_index, gpu_id, shape->num_channels,
+              bytes_to_gib(min_plan.device_total_bytes), bytes_to_gib(usable),
+              bytes_to_gib(min_plan.host_active_bytes),
+              bytes_to_gib(host_worker_budget),
+              host_budget_active ? "yes" : "no");
+    exit(1);
+  }
+
   size_t lo = 1, hi = 2;
   while (hi < 4096 && fits_block(hi, shape, args->lazy_write_depth, usable,
                                  host_budget_active, host_worker_budget, NULL))
@@ -333,8 +354,6 @@ size_t estimate_block_files_for_worker(const ARGUTYPE *args,
     else
       hi = mid;
   }
-  if (shape->num_channels > 1)
-    lo = (lo / shape->num_channels) * shape->num_channels;
   if (!fits_block(lo, shape, args->lazy_write_depth, usable,
                   host_budget_active, host_worker_budget, &plan))
   {
