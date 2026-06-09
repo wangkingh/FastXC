@@ -16,12 +16,29 @@ run_probe() {
 
 normalize_archs() {
   awk '
+    function trim(s) {
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
+      return s
+    }
+    function emit(major, minor) {
+      if (major ~ /^[1-9][0-9]*$/ && minor ~ /^[0-9]+$/) {
+        print "sm_" major minor
+      }
+    }
+    function normalize(arch) {
+      arch = trim(arch)
+      if (arch == "") return
+      sub(/^sm_/, "", arch)
+      sub(/^compute_/, "", arch)
+      if (arch ~ /^[0-9]+[.][0-9]+$/) {
+        split(arch, parts, ".")
+        emit(parts[1], parts[2])
+        return
+      }
+      if (arch ~ /^[1-9][0-9]+$/) print "sm_" arch
+    }
     {
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
-      if ($0 == "") next
-      gsub(/^sm_/, "", $0)
-      gsub(/\./, "", $0)
-      if ($0 ~ /^[1-9][0-9]$/) print "sm_" $0
+      for (i = 1; i <= NF; i++) normalize($i)
     }
   ' | sort -u | tr '\n' ' '
 }
