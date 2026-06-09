@@ -1,14 +1,15 @@
 # xc_fast backend.
 
 include ../common.mk
+.DEFAULT_GOAL := all
 
-CUDA_STD ?= c++14
 INCLUDES := -I. -Iinclude -Iio -Iworker -Imemory -Ikernels -Ipack_io
+PROJECT_CPPFLAGS := $(INCLUDES) $(CUDA_REQUIRED_CPPFLAGS)
 
-CFLAGS    ?= $(OPT_CFLAGS) $(WARN) $(INCLUDES) -pthread
-NVCCFLAGS ?= $(OPT_NVCCFLAGS) -std=$(CUDA_STD) $(NVCC_ARCH_FLAGS) $(INCLUDES)
+CFLAGS    ?= $(OPT_CFLAGS) $(WARN)
+NVCCFLAGS ?= $(OPT_NVCCFLAGS)
 
-LFLAG = -L$(CUDA_LIBDIR) -lcufft -lcudart -lm -lpthread
+LFLAG = $(CUDA_LDFLAGS) -lcufft -lcudart -lm -lpthread
 
 CUDAOBJS = \
     cuda.main.o \
@@ -42,13 +43,13 @@ $(BINDIR):
 	@mkdir -p $@
 
 $(PROG): $(OBJS) $(CUDAOBJS)
-	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LFLAG)
+	$(NVCC) $(PROJECT_CPPFLAGS) $(NVCCFLAGS) $(CUDA_REQUIRED_NVCCFLAGS) -o $@ $^ $(LFLAG)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(PROJECT_CPPFLAGS) $(CFLAGS) -pthread -c $< -o $@
 
 %.o: %.cu
-	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+	$(NVCC) $(PROJECT_CPPFLAGS) $(NVCCFLAGS) $(CUDA_REQUIRED_NVCCFLAGS) -c $< -o $@
 
 arguproc.o cuda.main.o memory/memory.o io/input.o: arguproc.h
 cuda.main.o worker/async_workers.o memory/memory.o: memory/memory.hpp

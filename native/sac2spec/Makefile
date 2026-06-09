@@ -1,14 +1,14 @@
 # sac2spec backend.
 
 include ../common.mk
-
-CUDA_STD ?= c++14
+.DEFAULT_GOAL := all
 
 INCLUDES  := -I. -Iinclude
-CFLAGS    ?= $(OPT_CFLAGS) $(WARN) $(INCLUDES)
-NVCCFLAGS ?= $(OPT_NVCCFLAGS) -std=$(CUDA_STD) $(NVCC_ARCH_FLAGS) $(INCLUDES)
+PROJECT_CPPFLAGS := $(INCLUDES) $(CUDA_REQUIRED_CPPFLAGS)
+CFLAGS    ?= $(OPT_CFLAGS) $(WARN)
+NVCCFLAGS ?= $(OPT_NVCCFLAGS)
 
-LFLAG = -L$(CUDA_LIBDIR) -lcufft -lcudart -lm -lpthread
+LFLAG = $(CUDA_LDFLAGS) -lcufft -lcudart -lm -lpthread
 
 CUDAOBJS = \
     cuda.util.o \
@@ -63,13 +63,13 @@ $(BINDIR):
 	@mkdir -p $@
 
 $(PROG): $(OBJS) $(CUDAOBJS) $(KERNELOBJS) $(CORECUDAOBJS)
-	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LFLAG)
+	$(NVCC) $(PROJECT_CPPFLAGS) $(NVCCFLAGS) $(CUDA_REQUIRED_NVCCFLAGS) -o $@ $^ $(LFLAG)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(PROJECT_CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 %.o: %.cu
-	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+	$(NVCC) $(PROJECT_CPPFLAGS) $(NVCCFLAGS) $(CUDA_REQUIRED_NVCCFLAGS) -c $< -o $@
 
 clean:
 	@rm -f *.o core/*.o io/*.o kernels/*.o worker/*.o

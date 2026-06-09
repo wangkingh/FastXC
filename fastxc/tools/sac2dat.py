@@ -68,10 +68,14 @@ def convert_sac_dir(input_dir: str | Path, output_dir: str | Path) -> list[DatCo
         raise NotADirectoryError(input_dir)
 
     results: list[DatConversionResult] = []
-    for sac_path in sorted(input_dir.rglob("*.sac")):
+    for sac_path in _iter_sac_files(input_dir):
         rel_path = sac_path.relative_to(input_dir).with_suffix(".dat")
         results.append(sac_to_dat(sac_path, output_dir / rel_path))
     return results
+
+
+def _iter_sac_files(input_dir: Path) -> list[Path]:
+    return sorted(path for path in input_dir.rglob("*") if path.is_file() and path.suffix.lower() == ".sac")
 
 
 def main(argv: list[str] | None = None) -> int:
