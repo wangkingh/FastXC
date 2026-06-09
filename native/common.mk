@@ -31,7 +31,7 @@ CUDA_ARCH_FALLBACK ?= sm_80
 CUDA_ARCH_DETECTOR ?= $(CUDA_SRC_ROOT)/detect_cuda_archs.sh
 CHECK_GPU ?= $(CUDA_SRC_ROOT)/../tools/check_gpu
 
-normalize_sm = $(if $(filter sm_%,$(1)),$(1),sm_$(1))
+normalize_sm = $(shell printf '%s\n' '$(1)' | awk '{ arch=$$0; gsub(/^[[:space:]]+|[[:space:]]+$$/, "", arch); sub(/^sm_/, "", arch); sub(/^compute_/, "", arch); if (arch ~ /^[0-9]+[.][0-9]+$$/) { split(arch, parts, "."); printf "sm_%s%s", parts[1], parts[2] } else { printf "sm_%s", arch } }')
 
 ifeq ($(strip $(ARCH)),auto)
   DETECTED_ARCHS := $(strip $(shell \
