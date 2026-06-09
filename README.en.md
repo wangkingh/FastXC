@@ -40,6 +40,39 @@ CUDA architecture is auto-detected. If detection fails, override it explicitly:
 make install ARCH=sm_89
 ```
 
+Set `ARCH` from the GPU compute capability: for example, 8.9 maps to `sm_89`
+and 12.0 maps to `sm_120`. Forms such as `sm89`, `sm120`, `8.9`, and `12.0`
+are also accepted and normalized to `sm_XX`. If you change GPUs, change
+`ARCH`, or suspect the existing native binaries under `bin/` were built for an
+older architecture, clean the native outputs before reinstalling:
+
+```bash
+make veryclean-native
+make install BUILD=release ARCH=sm_XX
+```
+
+Replace `sm_XX` with the architecture for the current GPU. If auto-detection
+works, `ARCH` can be omitted. You usually do not need to set compiler paths
+manually. Only set `NVCC`/`CUDA_HOME` when `make` finds an incomplete or wrong
+`nvcc`, for example:
+
+```bash
+make veryclean-native
+make install BUILD=release ARCH=sm_XX \
+  NVCC=/path/to/cuda/bin/nvcc CUDA_HOME=/path/to/cuda
+```
+
+If you use Miniconda/Conda CUDA, make sure the environment provides a complete
+CUDA Toolkit, including `nvcc`, `cufft.h`, and `libcufft.so`. The build checks
+both `$CUDA_HOME/include` and target layouts such as
+`$CUDA_HOME/targets/x86_64-linux/include`. If `nvcc` is incompatible with the
+default host compiler, set real C/C++ compiler paths:
+
+```bash
+make veryclean-native
+make install BUILD=release ARCH=sm_XX CC=/path/to/gcc CXX=/path/to/g++
+```
+
 ## Install
 
 All commands below assume the current directory is the FastXC repository root,

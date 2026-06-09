@@ -38,6 +38,36 @@ CUDA 架构默认自动检测。如果自动检测失败，可以手动指定：
 make install ARCH=sm_89
 ```
 
+其中 `ARCH` 应该按当前 GPU 的 compute capability 设置，例如 8.9 对应
+`sm_89`，12.0 对应 `sm_120`。也可以写成 `sm89`、`sm120` 或 `8.9`、
+`12.0`，构建系统会规范化为 `sm_XX`。如果更换 GPU、修改 `ARCH`，或怀疑已有
+`bin/` 里的原生二进制是按旧架构编译的，请先清理旧 native 产物再安装：
+
+```bash
+make veryclean-native
+make install BUILD=release ARCH=sm_XX
+```
+
+把 `sm_XX` 替换成当前 GPU 对应的架构；自动检测正常时也可以省略 `ARCH`。
+通常不需要手动设置编译器路径。只有当 `make` 选到了不完整或错误的 `nvcc`
+时，才显式指定 `NVCC`/`CUDA_HOME`，例如：
+
+```bash
+make veryclean-native
+make install BUILD=release ARCH=sm_XX \
+  NVCC=/path/to/cuda/bin/nvcc CUDA_HOME=/path/to/cuda
+```
+
+如果使用 Miniconda/Conda 里的 CUDA，请确认该环境提供完整 CUDA Toolkit，
+包括 `nvcc`、`cufft.h` 和 `libcufft.so`。构建系统会同时检查
+`$CUDA_HOME/include` 和 `$CUDA_HOME/targets/x86_64-linux/include` 这类布局。
+当 `nvcc` 不兼容默认 host compiler 时，再指定真实存在的 C/C++ 编译器：
+
+```bash
+make veryclean-native
+make install BUILD=release ARCH=sm_XX CC=/path/to/gcc CXX=/path/to/g++
+```
+
 ## 安装
 
 下面所有命令都假设当前目录是 FastXC 项目根目录，也就是能看到

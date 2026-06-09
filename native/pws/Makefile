@@ -1,15 +1,16 @@
 # PWS-only stack backend.
 
 include ../common.mk
-
-CUDA_STD ?= c++11
+.DEFAULT_GOAL := all
 
 INCLUDES := -I. -Iinclude -Iio -Ikernels -Iworker
+PROJECT_CPPFLAGS := $(INCLUDES) $(CUDA_REQUIRED_CPPFLAGS)
+NVCC_HOST_FLAGS := -Xcompiler "$(BITS64),-pthread"
 
-CFLAGS    ?= $(OPT_CFLAGS) $(WARN) $(INCLUDES) -pthread $(BITS64) $(CINCLUDE)
-NVCCFLAGS ?= $(OPT_NVCCFLAGS) -std=$(CUDA_STD) $(NVCC_ARCH_FLAGS) $(INCLUDES) -Xcompiler "$(BITS64),-pthread" $(CINCLUDE)
+CFLAGS    ?= $(OPT_CFLAGS) $(WARN)
+NVCCFLAGS ?= $(OPT_NVCCFLAGS)
 
-LDFLAGS = -L$(CUDA_LIBDIR) -lcufft -lcudart -lm -lpthread
+LDFLAGS = $(CUDA_LDFLAGS) -lcufft -lcudart -lm -lpthread
 
 CUDAOBJS = \
     cuda.util.o \
@@ -36,13 +37,13 @@ $(BINDIR):
 	@mkdir -p $@
 
 $(PROG): $(OBJS) $(CUDAOBJS)
-	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LDFLAGS)
+	$(NVCC) $(PROJECT_CPPFLAGS) $(NVCCFLAGS) $(CUDA_REQUIRED_NVCCFLAGS) $(NVCC_HOST_FLAGS) -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(PROJECT_CPPFLAGS) $(CFLAGS) -pthread $(BITS64) -c $< -o $@
 
 %.o: %.cu
-	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+	$(NVCC) $(PROJECT_CPPFLAGS) $(NVCCFLAGS) $(CUDA_REQUIRED_NVCCFLAGS) $(NVCC_HOST_FLAGS) -c $< -o $@
 
 cuda.main.o: worker/gpu_config.hpp worker/sourcepack_pipeline.hpp include/logger.h
 arguproc.o: include/logger.h

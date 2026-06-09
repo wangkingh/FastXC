@@ -1,15 +1,16 @@
 # TF-PWS-only stack backend.
 
 include ../common.mk
-
-CUDA_STD ?= c++14
+.DEFAULT_GOAL := all
 
 INCLUDES := -I. -Iinclude -Iio -Iworker -Icore -Ikernels
+PROJECT_CPPFLAGS := $(INCLUDES) $(CUDA_REQUIRED_CPPFLAGS)
+NVCC_HOST_FLAGS := -Xcompiler "$(BITS64),-pthread"
 
-CFLAGS    ?= $(OPT_CFLAGS) $(WARN) -pthread $(BITS64) $(CINCLUDE) $(INCLUDES)
-NVCCFLAGS ?= $(OPT_NVCCFLAGS) -std=$(CUDA_STD) $(NVCC_ARCH_FLAGS) -Xcompiler "$(BITS64),-pthread" $(CINCLUDE) $(INCLUDES)
+CFLAGS    ?= $(OPT_CFLAGS) $(WARN)
+NVCCFLAGS ?= $(OPT_NVCCFLAGS)
 
-LDFLAGS = -L$(CUDA_LIBDIR) -lcufft -lcudart -lm -lpthread
+LDFLAGS = $(CUDA_LDFLAGS) -lcufft -lcudart -lm -lpthread
 
 CUDAOBJS = \
     kernels/cuda.stransform.o \
@@ -37,13 +38,13 @@ $(BINDIR):
 	@mkdir -p $@
 
 $(PROG): $(OBJS) $(CUDAOBJS)
-	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LDFLAGS)
+	$(NVCC) $(PROJECT_CPPFLAGS) $(NVCCFLAGS) $(CUDA_REQUIRED_NVCCFLAGS) $(NVCC_HOST_FLAGS) -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(PROJECT_CPPFLAGS) $(CFLAGS) -pthread $(BITS64) -c $< -o $@
 
 %.o: %.cu
-	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+	$(NVCC) $(PROJECT_CPPFLAGS) $(NVCCFLAGS) $(CUDA_REQUIRED_NVCCFLAGS) $(NVCC_HOST_FLAGS) -c $< -o $@
 
 cuda.main.o: include/tfpws_types.hpp include/tfpws_input.hpp include/tfpws_schedule.hpp worker/pipeline.hpp cuda.util.cuh include/logger.h
 cuda.util.o: cuda.util.cuh include/logger.h
