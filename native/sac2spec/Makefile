@@ -72,7 +72,7 @@ $(PROG): $(OBJS) $(CUDAOBJS) $(KERNELOBJS) $(CORECUDAOBJS)
 	$(NVCC) $(PROJECT_CPPFLAGS) $(NVCCFLAGS) $(CUDA_REQUIRED_NVCCFLAGS) -c $< -o $@
 
 clean:
-	@rm -f *.o core/*.o io/*.o kernels/*.o worker/*.o
+	@find . -type f -name '*.o' -exec rm -f {} +
 
 veryclean: clean
 	@rm -f $(PROG)

@@ -57,7 +57,7 @@ worker/prescan.o: worker/prescan.hpp io/sourcepack_io.hpp core/tfpws_compute.hpp
 worker/pipeline.o: worker/pipeline.hpp worker/prescan.hpp worker/host_workspace_budget.hpp worker/work_queue.hpp io/sourcepack_io.hpp core/tfpws_compute.hpp include/tfpws_schedule.hpp include/tfpws_types.hpp include/progress_sidecar.hpp arguproc.h include/sac.h include/logger.h
 
 clean:
-	@rm -f *.o core/*.o io/*.o worker/*.o kernels/*.o
+	@find . -type f -name '*.o' -exec rm -f {} +
 
 veryclean: clean
 	@rm -f $(PROG)

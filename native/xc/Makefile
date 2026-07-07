@@ -70,7 +70,7 @@ arguproc.o cuda.main.o io/input.o memory/memory.o io/path_table.o io/sacio.o io/
 cuda.main.o io/writer.o: progress_sidecar.hpp
 
 clean:
-	@rm -f *.o io/*.o worker/*.o memory/*.o kernels/*.o pack_io/*.o
+	@find . -type f -name '*.o' -exec rm -f {} +
 
 veryclean: clean
 	@rm -f $(PROG)
