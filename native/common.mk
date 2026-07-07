@@ -71,7 +71,7 @@ CUDA_CUDART_LIB := $(firstword $(wildcard $(CUDA_LIBDIR)/libcudart.so $(CUDA_LIB
 
 ifeq ($(BUILD),debug)
   OPT_CFLAGS    ?= -O0 -g
-  OPT_NVCCFLAGS ?= -O0 -g -G -lineinfo
+  OPT_NVCCFLAGS ?= -O0 -g -G
 else
   OPT_CFLAGS    ?= -O3
   OPT_NVCCFLAGS ?= -O3 --use_fast_math --generate-line-info

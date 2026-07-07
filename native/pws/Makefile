@@ -56,7 +56,7 @@ kernels/cuda.pws.o: kernels/cuda.pws.cuh
 cuda.util.o: include/cuda.util.cuh include/logger.h
 
 clean:
-	@rm -f *.o io/*.o kernels/*.o worker/*.o
+	@find . -type f -name '*.o' -exec rm -f {} +
 
 veryclean: clean
 	@rm -f $(PROG)
