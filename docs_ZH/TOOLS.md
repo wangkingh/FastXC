@@ -235,26 +235,6 @@ fastxc plot-stepack-mat \
 - `--smooth-step, --smooth-frequency`：控制 step 方向和频率方向平滑强度。
 - `--no-smooth`：关闭平滑。
 
-## 分布式辅助命令
-
-以下命令服务静态 timestamp 切片和本地/远程任务调度，不属于普通单机用户的最小
-流程：
-
-```bash
-fastxc plan config.ini -N 8 -O workspace/distributed
-fastxc run-plan workspace/distributed/run_plan.tsv -j 2
-fastxc collect-plan workspace/distributed/run_plan.tsv
-```
-
-简要含义：
-
-- `plan`：按 timestamp 生成多个 task config 和 `run_plan.tsv`。
-- `run-plan`：在本机并发运行计划中的 task。
-- `collect-plan`：收集各 task 的 SourcePack 索引，生成主 workspace 可用的
-  `sourcepack_inputs.txt`。
-
-这组命令更适合 HPC/多节点实验；普通流程使用 `prepare` + `run` 即可。
-
 ## 什么时候用哪个工具
 
 - 想重新导出最终 SAC：用 `fastxc unpack`。

@@ -143,13 +143,10 @@ fastxc rotate config.ini
 ## 辅助工具速查
 
 主流程仍建议使用 `prepare` + `run`；需要补跑计算阶段时见上一段。下面只列检查
-中间结果、手动导出、绘图和分布式调度等辅助工具：
+中间结果、手动导出和绘图等辅助工具：
 
 | 场景 | 命令 |
 | --- | --- |
-| 生成分布式 timestamp 任务计划 | `fastxc plan config.ini -N ... -O ...` |
-| 运行分布式任务计划 | `fastxc run-plan ...` |
-| 收集分布式 SourcePack 索引 | `fastxc collect-plan ...` |
 | SAC 转 dat | `fastxc sac2dat -I ... -O ...` |
 | 手动构建 SourcePack | `fastxc sourcepack -I ... -O ...` |
 | 从 SourcePack 导出 SAC | `fastxc unpack -I ... -O ...` |
