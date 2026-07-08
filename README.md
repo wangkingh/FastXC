@@ -140,17 +140,13 @@ fastxc rotate config.ini
 
 它们适合已有 workspace 的补跑和调试；完整生产流程仍推荐 `prepare` + `run`。
 
-## 工具命令速查
+## 辅助工具速查
 
-主流程仍建议使用 `prepare` + `run`。需要补跑、检查中间结果或手动导出时，可以使用这些 CLI 入口：
+主流程仍建议使用 `prepare` + `run`；需要补跑计算阶段时见上一段。下面只列检查
+中间结果、手动导出、绘图和分布式调度等辅助工具：
 
 | 场景 | 命令 |
 | --- | --- |
-| 只补跑频谱转换 | `fastxc sac2spec config.ini` |
-| 只补跑互相关，并默认整理 SourcePack | `fastxc xc config.ini` |
-| 只补跑互相关，不整理 SourcePack | `fastxc xc config.ini --no-sourcepack` |
-| 补跑叠加 | `fastxc stack config.ini --method linear,pws,tfpws` |
-| 补跑旋转 | `fastxc rotate config.ini` |
 | 生成分布式 timestamp 任务计划 | `fastxc plan config.ini -N ... -O ...` |
 | 运行分布式任务计划 | `fastxc run-plan ...` |
 | 收集分布式 SourcePack 索引 | `fastxc collect-plan ...` |

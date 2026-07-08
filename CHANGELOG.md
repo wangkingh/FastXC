@@ -30,6 +30,8 @@ All notable project changes are recorded here. Dates use `YYYY-MM-DD`.
 - Clarified the current pack/index result model in README, Outputs, and agent
   notes: XC-side SourcePack is an index over `ncf/xcpack`, while stack/rotate
   SourcePack outputs are materialized products.
+- Clarified that `docs_ZH/TOOLS.md` and `docs_EN/TOOLS.md` cover helper tools
+  only; config-driven stage rerun commands stay in the README workflow section.
 - Reworked the Chinese README into a public user guide and moved migration
   rationale, cleanup notes, and architecture-change context into changelog/docs
   instead of the top-level usage page.

@@ -2,8 +2,9 @@
 
 This page documents helper commands outside the normal FastXC main workflow.
 They are useful for debugging, format conversion, manual export, recovering an
-existing workspace, and rerunning a single stage from `config.ini`. For normal
-production runs, prefer:
+existing workspace, and inspecting intermediate results. For normal production
+runs and compute-stage reruns, use the workflow commands described in the
+README.
 
 ```bash
 fastxc prepare config.ini
@@ -14,44 +15,12 @@ fastxc run config.ini
 
 | Command | Purpose | Common input | Common output |
 | --- | --- | --- | --- |
-| `fastxc sac2spec` | Run only the SAC2SPEC stage | `config.ini` + prepared workspace | `stepack/` |
-| `fastxc xc` | Run XC and build SourcePack by default | `config.ini` + `stepack/` | `ncf/`, `sourcepack/` |
-| `fastxc stack` | Run linear/PWS/TF-PWS stack | `config.ini` + `sourcepack/` | `stack/*_sourcepack/` |
-| `fastxc rotate` | Run RTZ rotation after stack | `config.ini` + `stack/*_sourcepack/` | `stack/rtz_*_sourcepack/` |
 | `fastxc sac2dat` | Convert SAC to text DAT | Directory containing `.sac` files | `.dat` text files |
 | `fastxc sourcepack` | Rebuild SourcePack indexes from XC pack output | `ncf/` or `ncf/xcpack/` | `sourcepack/<timestamp>/sourcepack_index.tsv` |
 | `fastxc unpack` | Export ordinary SAC files from SourcePack | SourcePack directory or `sourcepack_index.tsv` | `.sac` files |
 | `fastxc plot-rtz-grid` | Plot unpacked single-component or 3x3 virtual-source gathers | `result_ncf/ncf_*_BHZ` or `result_ncf/ncf_*_RTZ` | PNG |
 | `fastxc extract-stepack` | Extract one station's StepPack spectra, optionally with a plot | `workspace/stepack` | `.mat`, optional PNG |
 | `fastxc plot-stepack-mat` | Plot a StepPack `.mat` spectrum file | `.mat` from `extract-stepack` | PNG |
-
-## Stage Alias Commands
-
-These commands are clearer wrappers around `fastxc run --only ...`. They read
-the same `config.ini` and workspace and do not expose the long native backend
-argument lists directly.
-
-```bash
-fastxc sac2spec config.ini
-fastxc xc config.ini
-fastxc stack config.ini
-fastxc rotate config.ini
-```
-
-Notes:
-
-- `fastxc sac2spec config.ini`: runs only `Sac2Spec`, generating `stepack/`
-  from the prepared manifest.
-- `fastxc xc config.ini`: runs `CrossCorrelation` and then builds
-  `sourcepack/` by default. Add `--no-sourcepack` to stop after `ncf/xcpack/`.
-- `fastxc stack config.ini`: runs stack stages enabled by the config. Use
-  `--method linear,pws,tfpws` to limit methods; actual execution still honors
-  `stack_flag`.
-- `fastxc rotate config.ini`: runs rotation. It requires three-component input
-  and existing stack SourcePack output.
-
-These commands are intended for reruns, debugging, and local reproduction in an
-existing workspace. For a first full calculation, use `prepare` + `run`.
 
 ## `fastxc unpack`
 
