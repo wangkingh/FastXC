@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .planner import (
+    PathPlan,
     build_path_plan,
     filter_group_by_path_plan,
     station_time_rows_from_group,
@@ -71,6 +72,7 @@ def build_inventory(config: Any) -> InventoryResult:
         external_geo_tsv_path=config.geometry.external_geo_tsv,
     )
     write_path_plan(path_plan, root / "path_plan")
+    _raise_if_empty_path_plan(path_plan, config, root)
 
     filtered_by_group = {
         group_id: filter_group_by_path_plan(files_group, group_id, path_plan)
@@ -137,6 +139,23 @@ def require_inventory(config: Any) -> None:
         raise FileNotFoundError(
             "FastXC inventory is not prepared yet. Run "
             f"`fastxc prepare {config.ini_path}` first.\nMissing:\n  {preview}"
+        )
+
+    empty = [
+        f"{label}: {path}"
+        for label, path in (
+            ("allowed paths", allowed_paths),
+            ("SAC index", sac_index),
+            ("timestamp index", timestamp_index),
+        )
+        if _count_data_rows(path) == 0
+    ]
+    if empty:
+        preview = "\n  ".join(empty)
+        raise ValueError(
+            "FastXC inventory has no runnable work. Run `fastxc prepare "
+            f"{config.ini_path}` after fixing input filters or station geometry.\n"
+            f"Empty table(s):\n  {preview}"
         )
 
 
@@ -237,6 +256,50 @@ def write_inventory_metadata(config: Any) -> Path:
     meta_path = root / "inventory.meta.json"
     meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return meta_path
+
+
+def _raise_if_empty_path_plan(plan: PathPlan, config: Any, root: Path) -> None:
+    if plan.paths:
+        return
+
+    pair_config = plan.config
+    path_plan_dir = root / "path_plan"
+    external_geo_tsv = getattr(getattr(config, "geometry", None), "external_geo_tsv", "NONE")
+    lines = [
+        "FastXC path planning produced 0 allowed paths; aborting before SAC2SPEC.",
+        f"Path plan files were written for inspection: {path_plan_dir}",
+        f"NSL nodes: {len(plan.nodes)}",
+        f"Pair checks: {plan.pair_checks_total}",
+        f"Nodes missing lat/lon: {plan.missing_geo_node_count}",
+        f"SAC header geo parse errors: {plan.sac_header_parse_error_count}",
+        f"External geo TSV: {external_geo_tsv}",
+        f"External geo rows: {plan.external_geo_row_count}",
+        f"External geo nodes updated: {plan.external_geo_node_fill_count}",
+        f"External geo conflict nodes: {plan.external_geo_conflict_node_count}",
+        f"Distance filter enabled: {pair_config.use_distance_filter}",
+        f"Azimuth filter enabled: {pair_config.use_azimuth_filter}",
+        f"Group pair mode: {pair_config.group_pair_mode}",
+        f"Autocorr only: {pair_config.autocorr_only}",
+    ]
+
+    if pair_config.use_distance_filter or pair_config.use_azimuth_filter:
+        lines.append("Pairs with missing lat/lon cannot pass active distance or azimuth filters.")
+    if _external_geo_enabled(external_geo_tsv) and plan.external_geo_row_count == 0:
+        lines.append("External geo TSV was provided, but no data rows were loaded.")
+    if (
+        _external_geo_enabled(external_geo_tsv)
+        and plan.external_geo_row_count > 0
+        and plan.external_geo_node_fill_count == 0
+    ):
+        lines.append(
+            "External geo TSV was parsed but did not update any station; check station, network, and location matching."
+        )
+
+    raise ValueError("\n".join(lines))
+
+
+def _external_geo_enabled(path: object) -> bool:
+    return str(path or "NONE").strip().upper() not in {"", "NONE"}
 
 
 def _clean_generated_manifests(manifest_dir: Path) -> None:
