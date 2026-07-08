@@ -1,6 +1,6 @@
 # FastXC
 
-[中文主文档](README.md) | [Docs Index](docs/README.md) | [Configuration](docs/CONFIGURATION.md) | [Architecture](docs/ARCHITECTURE.md) | [Outputs](docs/OUTPUTS.md) | [Results](docs/RESULTS.md) | [Changelog](CHANGELOG.md)
+[中文主文档](README.md) | [Docs Index](docs_EN/README.md) | [Configuration](docs_EN/CONFIGURATION.md) | [Architecture](docs_EN/ARCHITECTURE.md) | [Outputs](docs_EN/OUTPUTS.md) | [Tools](docs_EN/TOOLS.md) | [Results](docs_EN/RESULTS.md) | [Changelog](CHANGELOG.md)
 
 The v2605 public cleanup, documentation rewrite, and release packaging for this
 project were assisted by OpenAI Codex / GPT Pro.
@@ -172,7 +172,7 @@ inspection, or manual export, these CLI entry points are the usual ones:
 
 `plot-rtz-grid` chooses a one-panel or 3x3 layout from the component count, and
 `extract-stepack --plot` writes both the `.mat` slice and a quick-look PNG. See
-[Tools](docs/TOOLS.md) for the full option reference.
+[Tools](docs_EN/TOOLS.md) for the full option reference.
 
 ## Quick Start
 
@@ -239,19 +239,22 @@ The plotter reads only RTZ results under `stack/rtz_*_sourcepack`. If PWS or
 TF-PWS stacking is enabled, use `--method pws` or `--method tfpws`.
 If you have already exported SAC files under `result_ncf/` with `unpack`, use
 `fastxc plot-rtz-grid` for single-component or RTZ/ENZ 3x3 virtual-source
-gathers. See [Tools](docs/TOOLS.md).
+gathers. See [Tools](docs_EN/TOOLS.md).
 
 ## Documentation
 
-Longer project notes live under `docs/`:
+Longer English project notes live under `docs_EN/`; Chinese notes live under
+`docs_ZH/`:
 
-- [Configuration](docs/CONFIGURATION.md) describes INI fields, path pattern
+- [Configuration](docs_EN/CONFIGURATION.md) describes INI fields, path pattern
   rules, and common values.
-- [Architecture](docs/ARCHITECTURE.md) describes the current
+- [Architecture](docs_EN/ARCHITECTURE.md) describes the current
   `stepack -> xcpack -> sourcepack` data flow.
-- [Outputs](docs/OUTPUTS.md) describes stage-by-stage workspace outputs.
-- [Results](docs/RESULTS.md) explains public result artifacts and local output
+- [Outputs](docs_EN/OUTPUTS.md) describes stage-by-stage workspace outputs.
+- [Tools](docs_EN/TOOLS.md) documents stage aliases and utility commands.
+- [Results](docs_EN/RESULTS.md) explains public result artifacts and local output
   retention.
+- [中文文档](docs_ZH/README.md) is the Chinese documentation index.
 - [Changelog](CHANGELOG.md) records release-facing changes and compatibility
   notes.
 
@@ -315,7 +318,7 @@ debug = False
 include `{station}`, `{component}` or `{channel}`, plus date fields such as
 `{YYYY}` + `{JJJ}` or `{YYYY}` + `{MM}` + `{DD}`. Use `{*}` for an ignored
 free-form segment and `{?}` for a short non-path segment. See
-[Configuration](docs/CONFIGURATION.md) for the full pattern rules.
+[Configuration](docs_EN/CONFIGURATION.md) for the full pattern rules.
 
 `sta_list` belongs to each `[seisarrayN]` or `[seisarrayN.source]` section.
 `NONE` means that source is not filtered by station. A station list file has one
@@ -387,7 +390,7 @@ log/
 ```
 
 `commands/` contains review copies of the native commands that Python runs.
-See [Outputs](docs/OUTPUTS.md) for stage-by-stage artifact details.
+See [Outputs](docs_EN/OUTPUTS.md) for stage-by-stage artifact details.
 
 ## Reading The Intermediate Results
 
@@ -447,7 +450,8 @@ fastxc/runtime/      Native subprocess execution and progress polling
 fastxc/io/           Binary/index format readers and writers
 fastxc/operators/    Python-native SourcePack, stacking, rotation, and filter operators
 fastxc/resources/    Packaged starter config and static resources
-docs/                Architecture and public project notes
+docs_EN/             English architecture and public project notes
+docs_ZH/             Chinese architecture and public project notes
 native/sac2spec/     CUDA SAC2SPEC backend
 native/xc/           CUDA cross-correlation backend
 native/pws/          CUDA PWS backend

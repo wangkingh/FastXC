@@ -3,7 +3,7 @@
 This document is a concise handoff guide for maintainers and coding agents.
 User-facing installation and usage instructions belong in the Chinese primary
 `README.md` and the auxiliary English `README.en.md`; architecture details
-belong in `docs/ARCHITECTURE.md`.
+belong in `docs_EN/ARCHITECTURE.md` and `docs_ZH/ARCHITECTURE.md`.
 
 ## LLM Quick Start
 
@@ -234,4 +234,4 @@ make -C native print-config
 fastxc doctor configs/test_suite/public_smoke_1hz_kansas.ini
 ```
 
-For architecture context, read `docs/ARCHITECTURE.md`.
+For architecture context, read `docs_EN/ARCHITECTURE.md`.
