@@ -115,7 +115,6 @@ example/workspace/**
 *.SEGSPEC
 *.xcpack
 *.pack
-*.bigsac
 *.ncf.SAC
 *.linearstack.sac
 *.pws.sac

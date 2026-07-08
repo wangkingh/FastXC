@@ -1,7 +1,8 @@
 # FastXC 工具命令
 
 本文说明 `fastxc` 主流程之外的辅助工具。它们适合调试、格式转换、手动导出和
-已有 workspace 的补救处理；常规计算仍建议使用：
+已有 workspace 的补救处理；也包括几个读取 `config.ini` 的阶段别名命令。常规
+计算仍建议使用：
 
 ```bash
 fastxc prepare config.ini
@@ -12,12 +13,47 @@ fastxc run config.ini
 
 | 命令 | 作用 | 常见输入 | 常见输出 |
 | --- | --- | --- | --- |
+| `fastxc sac2spec` | 只运行 SAC2SPEC 阶段 | `config.ini` + 已 prepare 的 workspace | `stepack/` |
+| `fastxc xc` | 运行 XC，并默认整理 SourcePack | `config.ini` + `stepack/` | `ncf/`、`sourcepack/` |
+| `fastxc stack` | 运行 linear/PWS/TF-PWS stack | `config.ini` + `sourcepack/` | `stack/*_sourcepack/` |
+| `fastxc rotate` | 运行 stack 后的 RTZ 旋转 | `config.ini` + `stack/*_sourcepack/` | `stack/rtz_*_sourcepack/` |
 | `fastxc sac2dat` | SAC 转文本 DAT | 包含 `.sac` 的目录 | `.dat` 文本文件 |
 | `fastxc sourcepack` | 从 XC pack 手动生成 SourcePack 索引 | `ncf/` 或 `ncf/xcpack/` | `sourcepack/<timestamp>/sourcepack_index.tsv` |
 | `fastxc unpack` | 从 SourcePack 导出普通 SAC | SourcePack 目录或 `sourcepack_index.tsv` | 普通 `.sac` 文件 |
-| `fastxc plot-rtz-grid` | 绘制 unpack 后的 RTZ 3x3 虚拟炮集 | `result_ncf/ncf_*_RTZ` | PNG |
-| `fastxc extract-stepack` | 从 StepPack 抽取单台站频谱 | `workspace/stepack` | `.mat` |
+| `fastxc plot-rtz-grid` | 绘制 unpack 后的单分量或 3x3 虚拟炮集 | `result_ncf/ncf_*_BHZ` 或 `result_ncf/ncf_*_RTZ` | PNG |
+| `fastxc extract-stepack` | 从 StepPack 抽取单台站频谱，可同时绘图 | `workspace/stepack` | `.mat`，可选 PNG |
 | `fastxc plot-stepack-mat` | 绘制 StepPack `.mat` 频谱图 | `extract-stepack` 导出的 `.mat` | PNG |
+
+## 阶段别名命令
+
+这些命令是 `fastxc run --only ...` 的更直观写法，仍然读取同一个
+`config.ini` 和 workspace，不直接暴露 native 后端的大量底层参数。
+
+```bash
+fastxc sac2spec config.ini
+fastxc xc config.ini
+fastxc stack config.ini
+fastxc rotate config.ini
+```
+
+说明：
+
+- `fastxc sac2spec config.ini`：只运行 `Sac2Spec`，从 prepare 写出的 manifest
+  生成 `stepack/`。
+- `fastxc xc config.ini`：运行 `CrossCorrelation`，并默认继续构建
+  `sourcepack/`。如果只想生成 `ncf/xcpack/`，加 `--no-sourcepack`。
+- `fastxc stack config.ini`：运行 stack 阶段，默认尝试 config 中启用的
+  linear/PWS/TF-PWS。可用 `--method linear,pws,tfpws` 限定方法；实际是否执行
+  仍受 `stack_flag` 控制。
+- `fastxc rotate config.ini`：运行旋转阶段；需要三分量输入，并读取已有 stack
+  SourcePack。
+
+这些命令适合已有 workspace 的补跑、调试和局部复现。第一次完整计算仍推荐：
+
+```bash
+fastxc prepare config.ini
+fastxc run config.ini
+```
 
 ## `fastxc unpack`
 
@@ -112,9 +148,14 @@ fastxc sac2dat \
 
 ## `fastxc plot-rtz-grid`
 
-`plot-rtz-grid` 从已经 unpack 出来的 RTZ 结果目录中，选择一个虚拟源并绘制
-`R/T/Z x R/T/Z` 的 3x3 虚拟炮集。每个子图会按震中距排列接收台站，适合快速检查
-旋转后的九分量互相关结果。
+`plot-rtz-grid` 从已经 unpack 出来的 `result_ncf` SAC 目录中，选择一个虚拟源
+并绘制按震中距排列的虚拟炮集。工具会根据文件名中的
+`src_component-rec_component.ncf.SAC` 自动判断布局：
+
+- 单分量结果，例如 `BHZ-BHZ` 或 `Z-Z`：绘制一张子图。
+- 三分量结果，例如 `R/T/Z x R/T/Z` 或 `E/N/Z x E/N/Z`：绘制 3x3 九宫格。
+
+这适合快速检查单分量 stack，也适合检查旋转后的 RTZ 九分量互相关结果。
 
 ```bash
 fastxc plot-rtz-grid \
@@ -123,9 +164,19 @@ fastxc plot-rtz-grid \
   -O workspace/plots/rtz_grid_45002.png
 ```
 
+单分量结果也使用同一个命令：
+
+```bash
+fastxc plot-rtz-grid \
+  -I workspace/result_ncf/ncf_linear_BHZ \
+  --source 45002 \
+  -O workspace/plots/linear_BHZ_45002.png
+```
+
 参数：
 
-- `-I, --input`：unpack 后的 RTZ SAC 目录，例如 `ncf_linear_RTZ`。
+- `-I, --input`：unpack 后的 SAC 目录，例如 `ncf_linear_BHZ` 或
+  `ncf_linear_RTZ`。
 - `--source`：虚拟源台站名，也可以给 `NET.STA`。
 - `-O, --output`：PNG 输出路径；不指定时写到输入目录下。
 - `--receiver`：只绘制指定接收台站；可以重复指定。
@@ -162,10 +213,32 @@ fastxc extract-stepack \
 - `--components`：逗号分隔的分量列表；默认 `ALL`。
 - `--component-match`：分量匹配方式，支持 `exact`、`tail`、`auto`。
 - `--no-compress`：关闭 `.mat` 压缩。
+- `--plot`：导出 `.mat` 后同时生成快速检查 PNG。
+- `--plot-output`：PNG 输出路径；不指定时写到 `.mat` 同目录。
 
 `auto` 分量匹配会先尝试精确匹配，再尝试末尾分量匹配。因此 `--components E,N,Z`
 可以匹配 `BHE,BHN,BHZ` 这类三分量命名；如果只想抽取某个原始通道，也可以直接写
 `--components BHZ`。
+
+如果希望抽取后立刻生成快速检查图，可以加 `--plot`：
+
+```bash
+fastxc extract-stepack \
+  --workspace workspace \
+  --timestamp 2023.001.0000 \
+  --station A7K2 \
+  --components E,N,Z \
+  -O workspace/plots/A7K2.2023.001.0000.stepack.mat \
+  --plot \
+  --max-frequency 1.0 \
+  --db
+```
+
+默认 PNG 会写在 `.mat` 旁边，例如
+`A7K2.2023.001.0000.stepack.amplitude.png`。也可以用 `--plot-output`
+指定路径。`--quantity`、`--db`、`--min-frequency`、`--max-frequency`、
+`--smooth-step`、`--smooth-frequency`、`--no-smooth`、`--plot-title` 和
+`--dpi` 与 `plot-stepack-mat` 的绘图含义一致。
 
 导出的 `.mat` 主要包含：
 
@@ -223,6 +296,9 @@ fastxc collect-plan workspace/distributed/run_plan.tsv
 - 想重新导出最终 SAC：用 `fastxc unpack`。
 - XC 已完成但 SourcePack 缺失或损坏：用 `fastxc sourcepack` 重建索引。
 - 想把少量 SAC 变成文本快速查看：用 `fastxc sac2dat`。
-- 想检查 RTZ 九分量虚拟炮集：用 `fastxc plot-rtz-grid`。
-- 想检查 SAC2SPEC 产生的单台站频谱：用 `fastxc extract-stepack`，再用
-  `fastxc plot-stepack-mat` 绘图。
+- 想检查单分量或 RTZ/ENZ 九分量虚拟炮集：用 `fastxc plot-rtz-grid`。
+- 想检查 SAC2SPEC 产生的单台站频谱：用 `fastxc extract-stepack --plot`；
+  已有 `.mat` 时用 `fastxc plot-stepack-mat` 重新绘图。
+
+旧的 BigSAC/extract 工具链已经废弃。当前结果检查优先使用 SourcePack
+`unpack`、`plot-rtz-grid` 和 StepPack inspection 工具。

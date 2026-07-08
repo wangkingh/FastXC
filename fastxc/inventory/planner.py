@@ -7,7 +7,7 @@ import struct
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -102,10 +102,8 @@ class PathPlan:
 
 
 def build_path_plan(
-    files_group1: Dict | None = None,
-    files_group2: Optional[Dict] = None,
     *,
-    files_groups: Optional[dict[str, Dict]] = None,
+    files_groups: dict[str, Dict],
     distance_range: str = "-1/50000",
     azimuth_range: str = "-1/360",
     double_array: bool = False,
@@ -115,7 +113,7 @@ def build_path_plan(
     external_geo_tsv_path: str | Path | None = None,
 ) -> PathPlan:
     """Build unique GNSL nodes and retained canonical GNSL paths."""
-    group_map = _normalize_files_groups(files_group1, files_group2, files_groups)
+    group_map = _normalize_files_groups(files_groups)
     nodes = collect_geo_nodes_from_groups(files_groups=group_map)
     enrich_nodes_from_sac_headers(nodes)
     external_geo_stats = inject_external_geo(nodes, external_geo_tsv_path)
@@ -142,13 +140,11 @@ def build_path_plan(
 
 
 def collect_geo_nodes_from_groups(
-    files_group1: Dict | None = None,
-    files_group2: Optional[Dict] = None,
     *,
-    files_groups: Optional[dict[str, Dict]] = None,
+    files_groups: dict[str, Dict],
 ) -> list[GeoNode]:
     node_map: OrderedDict[GNSLKey, GeoNode] = OrderedDict()
-    group_map = _normalize_files_groups(files_group1, files_group2, files_groups)
+    group_map = _normalize_files_groups(files_groups)
     for group_name, files_group in group_map.items():
         for key, info in files_group.items():
             gnsl = _gnsl_from_group_entry(group_name, key, info)
@@ -332,17 +328,6 @@ def filter_group_by_path_plan(files_group: Dict, group_name: str, plan: PathPlan
     }
 
 
-def station_time_rows_from_group(files_group: Dict) -> tuple[list[str], list]:
-    stations = []
-    times = []
-    for key in files_group:
-        if not isinstance(key, tuple) or len(key) < 2:
-            continue
-        stations.append(key[0])
-        times.append(key[1])
-    return stations, times
-
-
 def write_path_plan(plan: PathPlan, output_dir: str | Path) -> None:
     output_path = Path(output_dir).expanduser().resolve()
     output_path.mkdir(parents=True, exist_ok=True)
@@ -521,26 +506,14 @@ def parse_pair_filter_config(
     )
 
 
-def _normalize_files_groups(
-    files_group1: Dict | None,
-    files_group2: Optional[Dict],
-    files_groups: Optional[dict[str, Dict]],
-) -> OrderedDict[str, Dict]:
-    if files_groups is not None:
-        return OrderedDict(
-            (str(group_name), files_group or {})
-            for group_name, files_group in sorted(
-                files_groups.items(),
-                key=lambda item: _group_sort_key(str(item[0])),
-            )
+def _normalize_files_groups(files_groups: dict[str, Dict]) -> OrderedDict[str, Dict]:
+    return OrderedDict(
+        (str(group_name), files_group or {})
+        for group_name, files_group in sorted(
+            files_groups.items(),
+            key=lambda item: _group_sort_key(str(item[0])),
         )
-
-    group_map: OrderedDict[str, Dict] = OrderedDict()
-    if files_group1 is not None:
-        group_map["1"] = files_group1
-    if files_group2:
-        group_map["2"] = files_group2
-    return group_map
+    )
 
 
 def _group_sort_key(group_name: str) -> tuple[int, str]:

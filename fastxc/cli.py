@@ -31,6 +31,14 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_collect_plan(args)
     if args.command == "run":
         return _cmd_run(args)
+    if args.command == "sac2spec":
+        return _cmd_sac2spec_stage(args)
+    if args.command == "xc":
+        return _cmd_xc_stage(args)
+    if args.command == "stack":
+        return _cmd_stack_stage(args)
+    if args.command == "rotate":
+        return _cmd_rotate_stage(args)
     if args.command == "sac2dat":
         return _cmd_sac2dat(args)
     if args.command == "sourcepack":
@@ -92,6 +100,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument("--skip", help="comma-separated compute stages to skip")
 
+    sac2spec_stage_parser = sub.add_parser("sac2spec", help="run only the SAC2SPEC stage from config")
+    sac2spec_stage_parser.add_argument("config", help="path to config.ini")
+
+    xc_stage_parser = sub.add_parser("xc", help="run XC from prepared stepack, then build SourcePack")
+    xc_stage_parser.add_argument("config", help="path to config.ini")
+    xc_stage_parser.add_argument("--no-sourcepack", action="store_true", help="skip SourcePack indexing after XC")
+
+    stack_stage_parser = sub.add_parser("stack", help="run stack stage(s) from SourcePack")
+    stack_stage_parser.add_argument("config", help="path to config.ini")
+    stack_stage_parser.add_argument(
+        "--method",
+        default="all",
+        help="comma-separated stack method(s): all, linear, pws, tfpws; enabled methods still honor stack_flag",
+    )
+
+    rotate_stage_parser = sub.add_parser("rotate", help="run rotation stage from stack SourcePack")
+    rotate_stage_parser.add_argument("config", help="path to config.ini")
+
     sac2dat_parser = sub.add_parser("sac2dat", help="convert stacked SAC files to DAT text files")
     sac2dat_parser.add_argument("-I", "--input", required=True, help="input directory containing .sac files")
     sac2dat_parser.add_argument("-O", "--output", required=True, help="output DAT directory")
@@ -117,8 +143,11 @@ def build_parser() -> argparse.ArgumentParser:
     unpack_parser.add_argument("-O", "--output", required=True, help="output directory for unpacked SAC files")
     unpack_parser.add_argument("-T", "--threads", type=int, default=1, help="parallel output file workers")
 
-    plot_rtz_parser = sub.add_parser("plot-rtz-grid", help="plot a 3x3 RTZ gather from unpacked result_ncf SAC files")
-    plot_rtz_parser.add_argument("-I", "--input", required=True, help="unpacked RTZ result directory")
+    plot_rtz_parser = sub.add_parser(
+        "plot-rtz-grid",
+        help="plot a single-component or 3x3 gather from unpacked result_ncf SAC files",
+    )
+    plot_rtz_parser.add_argument("-I", "--input", required=True, help="unpacked result_ncf SAC directory")
     plot_rtz_parser.add_argument("--source", required=True, help="virtual source station or key")
     plot_rtz_parser.add_argument("-O", "--output", help="output PNG path")
     plot_rtz_parser.add_argument("--title", default="AUTO", help="figure title")
@@ -148,6 +177,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     extract_stepack_parser.add_argument("-O", "--output", required=True, help="output .mat path")
     extract_stepack_parser.add_argument("--no-compress", action="store_true", help="disable .mat compression")
+    extract_stepack_parser.add_argument("--plot", action="store_true", help="also write a quick-look PNG")
+    extract_stepack_parser.add_argument("--plot-output", help="output PNG path; defaults beside the .mat file")
+    extract_stepack_parser.add_argument(
+        "--quantity",
+        choices=("amplitude", "power", "phase", "real", "imag"),
+        default="amplitude",
+        help="spectrum quantity to plot when --plot is enabled",
+    )
+    extract_stepack_parser.add_argument("--db", action="store_true", help="plot amplitude/power in dB")
+    extract_stepack_parser.add_argument("--min-frequency", type=float, default=0.0, help="minimum frequency in Hz")
+    extract_stepack_parser.add_argument("--max-frequency", type=float, help="maximum frequency in Hz")
+    extract_stepack_parser.add_argument("--smooth-step", type=float, default=0.35, help="Gaussian smoothing sigma along step axis")
+    extract_stepack_parser.add_argument(
+        "--smooth-frequency",
+        type=float,
+        default=1.0,
+        help="Gaussian smoothing sigma along frequency-bin axis",
+    )
+    extract_stepack_parser.add_argument("--no-smooth", action="store_true", help="disable plot smoothing")
+    extract_stepack_parser.add_argument("--plot-title", default="AUTO", help="figure title for --plot")
+    extract_stepack_parser.add_argument("--dpi", type=int, default=180, help="output figure DPI for --plot")
 
     plot_stepack_parser = sub.add_parser("plot-stepack-mat", help="plot spectra exported by extract-stepack")
     plot_stepack_parser.add_argument("-I", "--input", required=True, help="input .mat file")
@@ -300,6 +350,39 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_sac2spec_stage(args: argparse.Namespace) -> int:
+    return _run_config_stages(args.config, ["Sac2Spec"])
+
+
+def _cmd_xc_stage(args: argparse.Namespace) -> int:
+    stages = ["CrossCorrelation"]
+    if not args.no_sourcepack:
+        stages.append("SourcePack")
+    return _run_config_stages(args.config, stages)
+
+
+def _cmd_stack_stage(args: argparse.Namespace) -> int:
+    try:
+        stages = _stack_stage_names(args.method)
+    except ValueError as exc:
+        logging.getLogger(__name__).error("%s", exc)
+        return 1
+    return _run_config_stages(args.config, stages)
+
+
+def _cmd_rotate_stage(args: argparse.Namespace) -> int:
+    return _run_config_stages(args.config, ["Rotate"])
+
+
+def _run_config_stages(config: str, stages: list[str]) -> int:
+    try:
+        FastXCController(config).compute(_only_stage_modes(stages))
+    except Exception as exc:
+        logging.getLogger(__name__).error("%s", exc)
+        return 1
+    return 0
+
+
 def _run_step_modes(only: str | None, skip: str | None) -> dict[str, str] | None:
     from .stages import COMPUTE_STEPS
 
@@ -316,6 +399,39 @@ def _run_step_modes(only: str | None, skip: str | None) -> dict[str, str] | None
         for name in _split_stage_list(skip):
             modes[name] = "SKIP"
     return modes
+
+
+def _only_stage_modes(stages: list[str]) -> dict[str, str]:
+    from .stages import COMPUTE_STEPS
+
+    selected = set(stages)
+    return {name: ("ALL" if name in selected else "SKIP") for name in COMPUTE_STEPS}
+
+
+def _stack_stage_names(methods: str) -> list[str]:
+    mapping = {
+        "linear": "LinearStack",
+        "linearstack": "LinearStack",
+        "pws": "PwsStack",
+        "tfpws": "TfPwsStack",
+    }
+    requested = [item.strip().lower() for item in methods.split(",") if item.strip()]
+    if not requested or requested == ["all"]:
+        return ["LinearStack", "PwsStack", "TfPwsStack"]
+    if "all" in requested:
+        raise ValueError("'all' cannot be combined with explicit stack methods")
+
+    stages: list[str] = []
+    invalid: list[str] = []
+    for method in requested:
+        stage = mapping.get(method)
+        if stage is None:
+            invalid.append(method)
+        elif stage not in stages:
+            stages.append(stage)
+    if invalid:
+        raise ValueError(f"unsupported stack method(s): {', '.join(invalid)}")
+    return stages
 
 
 def _split_stage_list(value: str) -> list[str]:
@@ -396,6 +512,8 @@ def _cmd_extract_stepack(args: argparse.Namespace) -> int:
         f"Wrote {result.output_path} "
         f"({result.component_count} component(s), {result.nstep} step(s), {result.nspec} frequency bin(s))."
     )
+    if result.plot_output_path is not None:
+        print(f"Wrote {result.plot_output_path}")
     return 0
 
 

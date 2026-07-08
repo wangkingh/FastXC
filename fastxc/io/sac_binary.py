@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import struct
 import sys
 from dataclasses import dataclass
@@ -280,25 +279,3 @@ def write_sac(path: str | Path, header: SacHeader, data: np.ndarray) -> None:
 
     with path.open("wb") as fp:
         fp.write(encode_sac_record(header, arr))
-
-
-def inspect_bigsac(path: str | Path) -> tuple[SacHeader, int, int]:
-    """Return `(first_header, record_count, data_count)` for a concatenated SAC."""
-
-    path = Path(path)
-    size = os.path.getsize(path)
-    if size < SAC_HEADER_BYTES:
-        raise ValueError(f"{path}: file is smaller than one SAC header")
-
-    with path.open("rb") as fp:
-        header = SacHeader.from_bytes(_read_exact(fp, SAC_HEADER_BYTES, "BigSAC first header"))
-
-    record_size = SAC_HEADER_BYTES + header.data_nbytes()
-    if record_size <= SAC_HEADER_BYTES:
-        raise ValueError(f"{path}: invalid SAC record size {record_size}")
-    if size % record_size != 0:
-        raise ValueError(
-            f"{path}: file size {size} is not a multiple of SAC record size {record_size}"
-        )
-
-    return header, size // record_size, header.data_count

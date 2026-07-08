@@ -25,8 +25,6 @@ void ArgumentProcess(int argc, char **argv, ARGUTYPE *parg)
   static struct option long_options[] = {
       {"progress", required_argument, 0, 1000},
       {"progress-file", required_argument, 0, 1000},
-      {"input-bigsac", required_argument, 0, 1001},
-      {"output-sac", required_argument, 0, 1002},
       {"sourcepack-list", required_argument, 0, 1003},
       {"output-sourcepack", required_argument, 0, 1004},
       {0, 0, 0, 0},
@@ -114,11 +112,6 @@ void ArgumentProcess(int argc, char **argv, ARGUTYPE *parg)
     case 1000:
       parg->progress_file = optarg;
       break;
-    case 1001:
-    case 1002:
-      LOG_ERROR("legacy_io_removed",
-                "message=\"--input-bigsac/--output-sac were removed; use -I/--sourcepack-list and -O/--output-sourcepack\"");
-      exit(EXIT_FAILURE);
     case 1003:
       parg->sourcepack_list = optarg;
       break;

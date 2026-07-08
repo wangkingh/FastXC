@@ -11,9 +11,12 @@ import numpy as np
 from fastxc.io import SacHeader, read_sac
 
 
-RTZ_COMPONENTS = ("R", "T", "Z")
+PREFERRED_COMPONENT_ORDERS = (
+    ("R", "T", "Z"),
+    ("E", "N", "Z"),
+)
 SAC_NULL = -12345.0
-_PAIR_RE = re.compile(r"\.([RTZ])-([RTZ])\.ncf\.sac$", re.IGNORECASE)
+_PAIR_RE = re.compile(r"\.([A-Za-z0-9_]+)-([A-Za-z0-9_]+)\.ncf\.sac$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -34,7 +37,7 @@ class RtzGridResult:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Plot a 3x3 RTZ virtual-source gather from unpacked FastXC SAC output."
+        description="Plot a single-component or 3x3 virtual-source gather from unpacked FastXC SAC output."
     )
     add_arguments(parser)
     args = parser.parse_args(argv)
@@ -52,7 +55,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "-I",
         "--input",
         required=True,
-        help="unpacked RTZ result directory, e.g. workspace/result_ncf/ncf_linear_RTZ",
+        help="unpacked result directory, e.g. workspace/result_ncf/ncf_linear_BHZ or ncf_linear_RTZ",
     )
     parser.add_argument("--source", required=True, help="virtual source station or key, e.g. 45002 or VV.45002")
     parser.add_argument("-O", "--output", help="output PNG path; defaults under <input>/plots")
@@ -115,7 +118,7 @@ def plot_unpacked_rtz_grid(
     output_path = (
         Path(output).expanduser().resolve()
         if output is not None
-        else root / "plots" / f"{source_key}.rtz_grid.png"
+        else root / "plots" / f"{source_key}.component_grid.png"
     )
 
     receiver_filters = tuple(item.strip() for item in receivers if item.strip())
@@ -133,19 +136,28 @@ def plot_unpacked_rtz_grid(
         indexes = np.linspace(0, len(pairs_by_receiver) - 1, max_receivers)
         pairs_by_receiver = [pairs_by_receiver[int(round(index))] for index in indexes]
     if not pairs_by_receiver:
-        raise ValueError(f"No receivers with valid RTZ SAC files found for source {source_key}")
+        raise ValueError(f"No receivers with valid component SAC files found for source {source_key}")
 
-    traces = _load_grid_traces(pairs_by_receiver, lag_window=lag_window)
+    source_components, receiver_components = _infer_component_layout(pairs_by_receiver)
+    traces = _load_grid_traces(
+        pairs_by_receiver,
+        source_components=source_components,
+        receiver_components=receiver_components,
+        lag_window=lag_window,
+    )
     if not any(traces.values()):
-        raise ValueError(f"No RTZ traces found for source {source_key}")
+        raise ValueError(f"No component traces found for source {source_key}")
 
+    layout_label = _layout_label(source_components, receiver_components)
     figure_title = (
-        f"{source_key} RTZ virtual-source gather"
+        f"{source_key} {layout_label} virtual-source gather"
         if title.upper() == "AUTO"
         else title
     )
     _plot_grid(
         traces,
+        source_components=source_components,
+        receiver_components=receiver_components,
         title=figure_title,
         output_path=output_path,
         scale=scale,
@@ -199,10 +211,9 @@ def _read_receiver_summary(receiver_dir: Path) -> tuple[float, Path, dict[tuple[
         if match is None:
             continue
         pair = (match.group(1).upper(), match.group(2).upper())
-        if pair[0] in RTZ_COMPONENTS and pair[1] in RTZ_COMPONENTS:
-            pairs[pair] = path
+        pairs[pair] = path
     if not pairs:
-        raise ValueError(f"No RTZ SAC files found under {receiver_dir}")
+        raise ValueError(f"No component SAC files found under {receiver_dir}")
 
     distance = _read_first_valid_distance(pairs.values())
     return distance, receiver_dir, pairs
@@ -218,16 +229,58 @@ def _read_receiver_summaries(receiver_dirs: list[Path]) -> list[tuple[float, Pat
     return summaries
 
 
+def _infer_component_layout(
+    receiver_summaries: list[tuple[float, Path, dict[tuple[str, str], Path]]],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    source_components = _sort_components(
+        {pair[0] for _, _, pairs in receiver_summaries for pair in pairs}
+    )
+    receiver_components = _sort_components(
+        {pair[1] for _, _, pairs in receiver_summaries for pair in pairs}
+    )
+    layout_size = len(source_components) * len(receiver_components)
+    if layout_size in {1, 9}:
+        return source_components, receiver_components
+    raise ValueError(
+        "Unsupported component layout: "
+        f"{len(source_components)} source component(s) x {len(receiver_components)} receiver component(s). "
+        "Expected single-component 1x1 or three-component 3x3 output."
+    )
+
+
+def _sort_components(components: set[str]) -> tuple[str, ...]:
+    for preferred in PREFERRED_COMPONENT_ORDERS:
+        if components == set(preferred):
+            return preferred
+    return tuple(sorted(components, key=_component_sort_key))
+
+
+def _component_sort_key(component: str) -> tuple[int, str]:
+    tail = component.upper()[-1:] if component else ""
+    rank = {"E": 0, "1": 0, "R": 0, "N": 1, "2": 1, "T": 1, "Z": 2, "3": 2}.get(tail, 99)
+    return rank, component
+
+
+def _layout_label(source_components: tuple[str, ...], receiver_components: tuple[str, ...]) -> str:
+    if len(source_components) == 1 and len(receiver_components) == 1:
+        return f"{source_components[0]}-{receiver_components[0]}"
+    return f"{''.join(source_components)} x {''.join(receiver_components)}"
+
+
 def _load_grid_traces(
     receiver_summaries: list[tuple[float, Path, dict[tuple[str, str], Path]]],
     *,
+    source_components: tuple[str, ...],
+    receiver_components: tuple[str, ...],
     lag_window: float,
 ) -> dict[tuple[str, str], list[RtzTrace]]:
     traces: dict[tuple[str, str], list[RtzTrace]] = {
-        (src, rec): [] for src in RTZ_COMPONENTS for rec in RTZ_COMPONENTS
+        (src, rec): [] for src in source_components for rec in receiver_components
     }
     for distance, receiver_dir, pairs in receiver_summaries:
         for pair, path in pairs.items():
+            if pair not in traces:
+                continue
             header, data = read_sac(path)
             lag = _lag_axis(header, data.size)
             data = np.asarray(data, dtype=np.float32)
@@ -253,6 +306,8 @@ def _load_grid_traces(
 def _plot_grid(
     traces: dict[tuple[str, str], list[RtzTrace]],
     *,
+    source_components: tuple[str, ...],
+    receiver_components: tuple[str, ...],
     title: str,
     output_path: Path,
     scale: float,
@@ -274,11 +329,14 @@ def _plot_grid(
     amp_scale = scale if scale > 0 else _auto_scale_km(all_distances)
     y_min, y_max = _distance_limits(all_distances, amp_scale)
 
-    fig, axes = plt.subplots(3, 3, figsize=(13.5, 10.5), sharex=True, sharey=True)
+    row_count = len(source_components)
+    col_count = len(receiver_components)
+    figsize = (7.5, 5.5) if row_count == 1 and col_count == 1 else (4.5 * col_count, 3.5 * row_count)
+    fig, axes = plt.subplots(row_count, col_count, figsize=figsize, sharex=True, sharey=True, squeeze=False)
     fig.suptitle(title, fontsize=15)
 
-    for row_index, src_component in enumerate(RTZ_COMPONENTS):
-        for col_index, rec_component in enumerate(RTZ_COMPONENTS):
+    for row_index, src_component in enumerate(source_components):
+        for col_index, rec_component in enumerate(receiver_components):
             ax = axes[row_index][col_index]
             pair = (src_component, rec_component)
             for trace in traces[pair]:
@@ -290,13 +348,13 @@ def _plot_grid(
                     linewidth=linewidth,
                     alpha=0.9,
                 )
-            ax.set_title(f"{src_component}{rec_component}", fontsize=11)
+            ax.set_title(f"{src_component}-{rec_component}", fontsize=11)
             ax.axvline(0.0, color="0.58", linewidth=0.6)
             ax.grid(True, axis="y", color="0.88", linewidth=0.45)
             ax.set_ylim(y_min, y_max)
             if col_index == 0:
                 ax.set_ylabel("Distance (km)")
-            if row_index == 2:
+            if row_index == row_count - 1:
                 ax.set_xlabel("Lag (s)")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

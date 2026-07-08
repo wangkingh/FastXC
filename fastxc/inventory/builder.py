@@ -13,7 +13,6 @@ from .planner import (
     PathPlan,
     build_path_plan,
     filter_group_by_path_plan,
-    station_time_rows_from_group,
     write_path_plan,
     write_timestamp_manifests,
 )
@@ -78,16 +77,6 @@ def build_inventory(config: Any) -> InventoryResult:
         group_id: filter_group_by_path_plan(files_group, group_id, path_plan)
         for group_id, files_group in files_by_group.items()
     }
-    first_group_id = next(iter(filtered_by_group), "1")
-    first_group = filtered_by_group.get(first_group_id, {})
-    stas1, times1 = station_time_rows_from_group(first_group)
-
-    config.stas1 = stas1
-    config.stas2 = []
-    config.times1 = times1
-    config.times2 = []
-    config.files_group1 = first_group
-    config.files_group2 = {}
     config.files_groups = filtered_by_group
     config.path_plan = path_plan
     config.allowed_path_ids = path_plan.allowed_path_ids

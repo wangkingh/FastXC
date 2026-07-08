@@ -11,6 +11,12 @@ All notable project changes are recorded here. Dates use `YYYY-MM-DD`.
   - `docs/RESULTS.md`
 - Kept private validation matrices and large result artifacts outside the public
   repository.
+- Added `fastxc extract-stepack --plot` so StepPack inspection can export the
+  `.mat` slice and write a quick-look spectrum PNG in one command.
+- Extended `fastxc plot-rtz-grid` to auto-detect single-component and
+  three-component result layouts from unpacked SAC filenames.
+- Added config-driven stage alias commands: `fastxc sac2spec`, `fastxc xc`,
+  `fastxc stack`, and `fastxc rotate`.
 
 ### Changed
 
@@ -61,6 +67,16 @@ All notable project changes are recorded here. Dates use `YYYY-MM-DD`.
   `[xcorr]`, `[stack]`, `[storage]`, `[unpack]`, `advance.xcache`,
   `advance.sourcepack`, and `advance.stack` layouts.
 - Added `shift_len = AUTO`, which resolves to `win_len`.
+
+### Removed
+
+- Removed the remaining legacy BigSAC inspection and naming hooks from current
+  code paths: Python SAC IO no longer exports `inspect_bigsac`, native XC
+  records `.sac` final pair paths, and PWS/TF-PWS derive stack output suffixes
+  from ordinary SourcePack final SAC paths.
+- Removed retired planner compatibility for `files_group1/files_group2` and
+  related `stas1/times1` config backfill fields; path planning now accepts the
+  current `files_groups` mapping used by `[seisarrayN]` inventory preparation.
 
 ### Notes
 

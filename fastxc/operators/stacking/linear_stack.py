@@ -56,17 +56,19 @@ class _SourceIndexStream:
     records: Iterator[SourceIndexRecord]
 
 
-def _parse_bigsac_name(path: Path) -> tuple[str, str, str]:
+def _parse_final_pair_name(path: Path) -> tuple[str, str, str]:
     parts = path.name.split(".")
-    if len(parts) < 4 or parts[-1].lower() != "bigsac":
-        raise ValueError(f"Unexpected BigSAC file name: {path.name}")
+    if parts and parts[-1].lower() == "sac":
+        parts = parts[:-1]
+    if len(parts) < 3:
+        raise ValueError(f"Unexpected final pair path: {path.name}")
     return parts[0], parts[1], parts[2]
 
 
-def linear_output_path(big_sac: str | Path, stack_dir: str | Path) -> Path:
-    big_sac = Path(big_sac)
+def linear_output_path(final_pair_path: str | Path, stack_dir: str | Path) -> Path:
+    final_pair_path = Path(final_pair_path)
     stack_dir = Path(stack_dir).expanduser().resolve()
-    net_pair, sta_pair, cmp_pair = _parse_bigsac_name(big_sac)
+    net_pair, sta_pair, cmp_pair = _parse_final_pair_name(final_pair_path)
     pair_name = f"{net_pair}.{sta_pair}"
     return stack_dir / "linearstack" / pair_name / f"{pair_name}.{cmp_pair}.linearstack.sac"
 
@@ -93,7 +95,7 @@ def _fallback_final_pair_path(row: dict[str, str]) -> Path:
     net_pair = f"{row['src_network']}-{row['rec_network']}"
     sta_pair = f"{row['src_station']}-{row['rec_station']}"
     cmp_pair = f"{row['src_component']}-{row['rec_component']}"
-    return Path(f"{net_pair}.{sta_pair}.{cmp_pair}.bigsac")
+    return Path(f"{net_pair}.{sta_pair}.{cmp_pair}.sac")
 
 
 def _read_source_index(path: str | Path) -> list[SourceIndexRecord]:
@@ -355,18 +357,18 @@ def linear_stack_sourcepack_indexes(
                 record_offset = pack_handle.tell()
                 data = encode_sac_record(header, stacked)
                 pack_handle.write(data)
-                legacy_path = linear_output_path(final_pair, stack_dir)
+                linear_path = linear_output_path(final_pair, stack_dir)
                 writer.writerow(
                     _linear_index_row(
                         records[0].row,
                         pack_path=pack_path,
                         record_offset=record_offset,
                         record_bytes=len(data),
-                        final_pair_path=legacy_path,
+                        final_pair_path=linear_path,
                         header=header,
                     )
                 )
-                results.append(StackResult(Path(final_pair), legacy_path, len(records), header.data_count))
+                results.append(StackResult(Path(final_pair), linear_path, len(records), header.data_count))
     finally:
         _close_binary_handles(handles)
 

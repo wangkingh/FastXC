@@ -84,6 +84,7 @@ class ExtractedStepack:
     component_count: int
     nstep: int
     nspec: int
+    plot_output_path: Path | None = None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -97,6 +98,8 @@ def main(argv: list[str] | None = None) -> int:
         f"Wrote {result.output_path} "
         f"({result.component_count} component(s), {result.nstep} step(s), {result.nspec} frequency bin(s))."
     )
+    if result.plot_output_path is not None:
+        print(f"Wrote {result.plot_output_path}")
     return 0
 
 
@@ -120,13 +123,24 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("-O", "--output", required=True, help="output .mat path")
     parser.add_argument("--no-compress", action="store_true", help="disable scipy savemat compression")
+    parser.add_argument("--plot", action="store_true", help="also write a quick-look PNG after exporting .mat")
+    parser.add_argument("--plot-output", help="output PNG path; defaults beside the .mat file")
+    parser.add_argument("--quantity", choices=("amplitude", "power", "phase", "real", "imag"), default="amplitude")
+    parser.add_argument("--db", action="store_true", help="plot amplitude/power in dB")
+    parser.add_argument("--min-frequency", type=float, default=0.0, help="minimum frequency in Hz")
+    parser.add_argument("--max-frequency", type=float, help="maximum frequency in Hz")
+    parser.add_argument("--smooth-step", type=float, default=0.35, help="Gaussian smoothing sigma along step axis")
+    parser.add_argument("--smooth-frequency", type=float, default=1.0, help="Gaussian smoothing sigma along frequency-bin axis")
+    parser.add_argument("--no-smooth", action="store_true", help="disable plot smoothing")
+    parser.add_argument("--plot-title", default="AUTO", help="figure title for --plot")
+    parser.add_argument("--dpi", type=int, default=180, help="output figure DPI for --plot")
 
 
 def run(args: argparse.Namespace) -> ExtractedStepack:
     if bool(args.workspace) == bool(args.stepack):
         raise ValueError("provide exactly one of --workspace or --stepack")
     stepack_input = Path(args.stepack).expanduser() if args.stepack else Path(args.workspace).expanduser() / "stepack"
-    return extract_stepack_to_mat(
+    result = extract_stepack_to_mat(
         stepack_input,
         timestamp=args.timestamp,
         station=args.station,
@@ -136,6 +150,19 @@ def run(args: argparse.Namespace) -> ExtractedStepack:
         components=args.components,
         component_match=args.component_match,
         compress=not args.no_compress,
+    )
+    if not _should_plot(args):
+        return result
+
+    plot_path = _plot_extracted_stepack(result.output_path, args)
+    return ExtractedStepack(
+        result.output_path,
+        result.timestamp,
+        result.station,
+        result.component_count,
+        result.nstep,
+        result.nspec,
+        plot_path,
     )
 
 
@@ -185,6 +212,40 @@ def extract_stepack_to_mat(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     save_stepack_mat(output_path, timestamp, selected, spectra, compress=compress)
     return ExtractedStepack(output_path, timestamp, selected[0].station, len(selected), shape[0], shape[1])
+
+
+def _should_plot(args: argparse.Namespace) -> bool:
+    return bool(getattr(args, "plot", False) or getattr(args, "plot_output", None))
+
+
+def _plot_extracted_stepack(mat_path: Path, args: argparse.Namespace) -> Path:
+    from fastxc.tools.plot_stepack_mat import plot_stepack_mat
+
+    output = getattr(args, "plot_output", None) or default_plot_output_path(
+        mat_path,
+        quantity=args.quantity,
+        db=args.db,
+    )
+    return plot_stepack_mat(
+        mat_path,
+        output=output,
+        max_frequency=args.max_frequency,
+        min_frequency=args.min_frequency,
+        quantity=args.quantity,
+        db=args.db,
+        smooth_step=0.0 if args.no_smooth else args.smooth_step,
+        smooth_frequency=0.0 if args.no_smooth else args.smooth_frequency,
+        dpi=args.dpi,
+        title=args.plot_title,
+    )
+
+
+def default_plot_output_path(mat_path: str | Path, *, quantity: str = "amplitude", db: bool = False) -> Path:
+    path = Path(mat_path).expanduser().resolve()
+    suffix = f".{quantity}{'_db' if db and quantity in {'amplitude', 'power'} else ''}.png"
+    if path.suffix:
+        return path.with_suffix(suffix)
+    return path.with_name(path.name + suffix)
 
 
 def discover_stepack_fragments(stepack_input: str | Path) -> list[StepackFragment]:

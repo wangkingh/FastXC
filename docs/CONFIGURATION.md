@@ -20,6 +20,9 @@ fastxc init -o config.ini
 - 布尔值可使用 `True/False`、`yes/no`、`1/0`、`on/off`。
 - 数据源使用 `[seisarrayN]` 或 `[seisarrayN.source]`；主计算参数集中放在
   `[compute]`。
+- 旧的 `[arrayN]`、`[preprocess]`、`[xcorr]`、`[stack]` 等兼容配置已经移除。
+  路径规划内部统一使用当前 `[seisarrayN]` 产生的 `files_groups`，不再维护
+  `files_group1/files_group2` 旧入口。
 
 ## SAC Path Pattern
 
@@ -131,6 +134,10 @@ A7K2	38.499907	-98.603619	0	KS	00
 十进制度，西经和南纬使用负数。相对路径按执行 `fastxc` 命令时的当前目录解
 析；建议写绝对路径，或在配置文件所在目录运行命令。
 
+如果提供了外部表但没有匹配到任何台站，并且距离/方位角等筛选最终导致
+`allowed_paths.tsv` 为空，`prepare` 会在进入 SAC2SPEC 之前报错。这样可以尽
+早发现 SAC header 无几何信息、外部 TSV 匹配失败或筛选条件过窄的问题。
+
 ## `[executables]`
 
 控制原生后端可执行文件发现。普通用户通常保持 `AUTO`。
@@ -201,6 +208,10 @@ SourcePack/stack 结果导出为传统 SAC 文件。如果只想保留紧凑的 
 | `unpack_target` | 导出目标：`ALL`、`FINAL`、`STACK`、`ROTATE`；默认 `ALL`。 |
 
 导出目录固定为 `workspace_dir/result_ncf`。
+
+单分量结果目录会保留原始分量名，例如 `ncf_linear_BHZ`；三分量未旋转结果使
+用 `ENZ`，旋转结果使用 `RTZ`。旧 BigSAC 导出/抽取路径已经废弃，当前人工查
+看结果请使用 `unpack` 导出的 SAC 或 `docs/TOOLS.md` 中的工具命令。
 
 ## `[debug]`
 
