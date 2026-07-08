@@ -148,18 +148,14 @@ fastxc rotate config.ini
 They are useful for reruns and debugging an existing workspace. For production,
 the recommended path remains `prepare` + `run`.
 
-## Tool Command Quick Reference
+## Utility Command Quick Reference
 
-The standard workflow is still `prepare` + `run`. For reruns, intermediate
-inspection, or manual export, these CLI entry points are the usual ones:
+The standard workflow is still `prepare` + `run`; compute-stage reruns are
+covered in the preceding workflow paragraph. The table below only lists helper
+tools for inspection, manual export, plotting, and distributed task management:
 
 | Use case | Command |
 | --- | --- |
-| Rerun only spectrum conversion | `fastxc sac2spec config.ini` |
-| Rerun XC and build SourcePack by default | `fastxc xc config.ini` |
-| Rerun XC without building SourcePack | `fastxc xc config.ini --no-sourcepack` |
-| Rerun stacking | `fastxc stack config.ini --method linear,pws,tfpws` |
-| Rerun rotation | `fastxc rotate config.ini` |
 | Create a distributed timestamp task plan | `fastxc plan config.ini -N ... -O ...` |
 | Run a distributed task plan | `fastxc run-plan ...` |
 | Collect distributed SourcePack indexes | `fastxc collect-plan ...` |
@@ -251,7 +247,8 @@ Longer English project notes live under `docs_EN/`; Chinese notes live under
 - [Architecture](docs_EN/ARCHITECTURE.md) describes the current
   `stepack -> xcpack -> sourcepack` data flow.
 - [Outputs](docs_EN/OUTPUTS.md) describes stage-by-stage workspace outputs.
-- [Tools](docs_EN/TOOLS.md) documents stage aliases and utility commands.
+- [Tools](docs_EN/TOOLS.md) documents helper commands for export, repair,
+  inspection, and plotting.
 - [Results](docs_EN/RESULTS.md) explains public result artifacts and local output
   retention.
 - [中文文档](docs_ZH/README.md) is the Chinese documentation index.

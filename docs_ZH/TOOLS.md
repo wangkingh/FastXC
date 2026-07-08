@@ -1,8 +1,7 @@
 # FastXC 工具命令
 
 本文说明 `fastxc` 主流程之外的辅助工具。它们适合调试、格式转换、手动导出和
-已有 workspace 的补救处理；也包括几个读取 `config.ini` 的阶段别名命令。常规
-计算仍建议使用：
+已有 workspace 的补救处理。常规计算和阶段补跑仍建议使用 README 中的主流程说明：
 
 ```bash
 fastxc prepare config.ini
@@ -13,47 +12,12 @@ fastxc run config.ini
 
 | 命令 | 作用 | 常见输入 | 常见输出 |
 | --- | --- | --- | --- |
-| `fastxc sac2spec` | 只运行 SAC2SPEC 阶段 | `config.ini` + 已 prepare 的 workspace | `stepack/` |
-| `fastxc xc` | 运行 XC，并默认整理 SourcePack | `config.ini` + `stepack/` | `ncf/`、`sourcepack/` |
-| `fastxc stack` | 运行 linear/PWS/TF-PWS stack | `config.ini` + `sourcepack/` | `stack/*_sourcepack/` |
-| `fastxc rotate` | 运行 stack 后的 RTZ 旋转 | `config.ini` + `stack/*_sourcepack/` | `stack/rtz_*_sourcepack/` |
 | `fastxc sac2dat` | SAC 转文本 DAT | 包含 `.sac` 的目录 | `.dat` 文本文件 |
 | `fastxc sourcepack` | 从 XC pack 手动生成 SourcePack 索引 | `ncf/` 或 `ncf/xcpack/` | `sourcepack/<timestamp>/sourcepack_index.tsv` |
 | `fastxc unpack` | 从 SourcePack 导出普通 SAC | SourcePack 目录或 `sourcepack_index.tsv` | 普通 `.sac` 文件 |
 | `fastxc plot-rtz-grid` | 绘制 unpack 后的单分量或 3x3 虚拟炮集 | `result_ncf/ncf_*_BHZ` 或 `result_ncf/ncf_*_RTZ` | PNG |
 | `fastxc extract-stepack` | 从 StepPack 抽取单台站频谱，可同时绘图 | `workspace/stepack` | `.mat`，可选 PNG |
 | `fastxc plot-stepack-mat` | 绘制 StepPack `.mat` 频谱图 | `extract-stepack` 导出的 `.mat` | PNG |
-
-## 阶段别名命令
-
-这些命令是 `fastxc run --only ...` 的更直观写法，仍然读取同一个
-`config.ini` 和 workspace，不直接暴露 native 后端的大量底层参数。
-
-```bash
-fastxc sac2spec config.ini
-fastxc xc config.ini
-fastxc stack config.ini
-fastxc rotate config.ini
-```
-
-说明：
-
-- `fastxc sac2spec config.ini`：只运行 `Sac2Spec`，从 prepare 写出的 manifest
-  生成 `stepack/`。
-- `fastxc xc config.ini`：运行 `CrossCorrelation`，并默认继续构建
-  `sourcepack/`。如果只想生成 `ncf/xcpack/`，加 `--no-sourcepack`。
-- `fastxc stack config.ini`：运行 stack 阶段，默认尝试 config 中启用的
-  linear/PWS/TF-PWS。可用 `--method linear,pws,tfpws` 限定方法；实际是否执行
-  仍受 `stack_flag` 控制。
-- `fastxc rotate config.ini`：运行旋转阶段；需要三分量输入，并读取已有 stack
-  SourcePack。
-
-这些命令适合已有 workspace 的补跑、调试和局部复现。第一次完整计算仍推荐：
-
-```bash
-fastxc prepare config.ini
-fastxc run config.ini
-```
 
 ## `fastxc unpack`
 
