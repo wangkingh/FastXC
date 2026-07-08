@@ -127,6 +127,43 @@ fastxc run config.ini
 出 inventory 元数据。`run` 会读取准备好的 inventory，依次执行频谱转换、互
 相关、SourcePack 整理、叠加、旋转和可选导出。
 
+也可以只运行某个后续阶段。下面这些命令仍然读取同一个 `config.ini`，不需要
+手动填写 native SAC2SPEC/XC/PWS/TF-PWS 的底层参数：
+
+```bash
+fastxc sac2spec config.ini
+fastxc xc config.ini              # XC 后默认整理 SourcePack
+fastxc xc config.ini --no-sourcepack
+fastxc stack config.ini --method linear,pws,tfpws
+fastxc rotate config.ini
+```
+
+它们适合已有 workspace 的补跑和调试；完整生产流程仍推荐 `prepare` + `run`。
+
+## 工具命令速查
+
+主流程仍建议使用 `prepare` + `run`。需要补跑、检查中间结果或手动导出时，可以使用这些 CLI 入口：
+
+| 场景 | 命令 |
+| --- | --- |
+| 只补跑频谱转换 | `fastxc sac2spec config.ini` |
+| 只补跑互相关，并默认整理 SourcePack | `fastxc xc config.ini` |
+| 只补跑互相关，不整理 SourcePack | `fastxc xc config.ini --no-sourcepack` |
+| 补跑叠加 | `fastxc stack config.ini --method linear,pws,tfpws` |
+| 补跑旋转 | `fastxc rotate config.ini` |
+| 生成分布式 timestamp 任务计划 | `fastxc plan config.ini -N ... -O ...` |
+| 运行分布式任务计划 | `fastxc run-plan ...` |
+| 收集分布式 SourcePack 索引 | `fastxc collect-plan ...` |
+| SAC 转 dat | `fastxc sac2dat -I ... -O ...` |
+| 手动构建 SourcePack | `fastxc sourcepack -I ... -O ...` |
+| 从 SourcePack 导出 SAC | `fastxc unpack -I ... -O ...` |
+| 绘制 `result_ncf` 虚拟源炮集 | `fastxc plot-rtz-grid -I ... --source ...` |
+| 抽取并绘制某个 StepPack 台站频谱 | `fastxc extract-stepack --workspace ... --timestamp ... --station ... --plot` |
+| 重绘已导出的频谱 MAT | `fastxc plot-stepack-mat -I ... -O ...` |
+
+`plot-rtz-grid` 会按结果分量数自动使用单图或 3x3 九宫格；`extract-stepack --plot`
+会同时写 `.mat` 和快速检查 PNG。更完整参数见 [工具命令](docs/TOOLS.md)。
+
 ## 快速开始
 
 生成配置文件：
@@ -187,6 +224,9 @@ python plot_rtz_distance_lines.py \
 
 该命令只读取 `stack/rtz_*_sourcepack` 下的 RTZ 结果；如果启用了 PWS 或
 TF-PWS，可通过 `--method pws` 或 `--method tfpws` 绘制对应叠加结果。
+如果已经通过 `unpack` 导出了 `result_ncf/` 下的 SAC 文件，也可以使用
+`fastxc plot-rtz-grid` 绘制单分量或 RTZ/ENZ 九分量虚拟炮集；详见
+[工具命令](docs/TOOLS.md)。
 
 ## 主要配置项
 
@@ -341,13 +381,24 @@ PWS 和 TF-PWS 也使用同样的 pack + index 结构，只是由于 GPU worker 
 导出。也就是说，SAC 是输入格式和最终导出格式，而不是 FastXC 后半段的主要工
 作格式。
 
+旧的 BigSAC 拼接/抽取路径已经从当前主流程和工具入口中移除。当前推荐路径是
+`stepack -> xcpack -> SourcePack -> stack/rotate -> unpack`；需要人工查看时，
+先从 SourcePack 导出 SAC，或使用下面的工具直接检查 StepPack/结果 SAC。
+
 常用手动工具见 [工具命令](docs/TOOLS.md)。例如：
 
 ```bash
 fastxc sac2dat -I /path/to/sac_dir -O /path/to/dat_dir
 fastxc sourcepack -I /path/to/workspace/ncf -O /path/to/workspace/sourcepack
 fastxc unpack -I /path/to/sourcepack_index.tsv -O /path/to/sac_dir
+fastxc plot-rtz-grid -I /path/to/result_ncf/ncf_linear_RTZ --source A7K2
+fastxc extract-stepack --workspace /path/to/workspace --timestamp 2023.001.0000 --station A7K2 -O A7K2.stepack.mat --plot
 ```
+
+`plot-rtz-grid` 会自动识别单分量结果和三分量 3x3 结果：单分量输出一张子
+图，RTZ/ENZ 这类九分量输出九宫格。`extract-stepack --plot` 会同时导出
+`.mat` 和一张快速检查 PNG；已有 `.mat` 仍可用 `fastxc plot-stepack-mat`
+重新绘图。
 
 ## 文档
 

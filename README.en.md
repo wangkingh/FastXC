@@ -133,6 +133,47 @@ fastxc run config.ini
 allowed station pairs, and writes the inventory metadata. `run` consumes that
 prepared inventory and runs the staged FastXC backend.
 
+You can also rerun a later stage directly. These commands still read the same
+`config.ini`; they do not expose the low-level native SAC2SPEC/XC/PWS/TF-PWS
+argument lists:
+
+```bash
+fastxc sac2spec config.ini
+fastxc xc config.ini              # also builds SourcePack by default
+fastxc xc config.ini --no-sourcepack
+fastxc stack config.ini --method linear,pws,tfpws
+fastxc rotate config.ini
+```
+
+They are useful for reruns and debugging an existing workspace. For production,
+the recommended path remains `prepare` + `run`.
+
+## Tool Command Quick Reference
+
+The standard workflow is still `prepare` + `run`. For reruns, intermediate
+inspection, or manual export, these CLI entry points are the usual ones:
+
+| Use case | Command |
+| --- | --- |
+| Rerun only spectrum conversion | `fastxc sac2spec config.ini` |
+| Rerun XC and build SourcePack by default | `fastxc xc config.ini` |
+| Rerun XC without building SourcePack | `fastxc xc config.ini --no-sourcepack` |
+| Rerun stacking | `fastxc stack config.ini --method linear,pws,tfpws` |
+| Rerun rotation | `fastxc rotate config.ini` |
+| Create a distributed timestamp task plan | `fastxc plan config.ini -N ... -O ...` |
+| Run a distributed task plan | `fastxc run-plan ...` |
+| Collect distributed SourcePack indexes | `fastxc collect-plan ...` |
+| Convert SAC to dat | `fastxc sac2dat -I ... -O ...` |
+| Build SourcePack manually | `fastxc sourcepack -I ... -O ...` |
+| Export SAC from SourcePack | `fastxc unpack -I ... -O ...` |
+| Plot a `result_ncf` virtual-source gather | `fastxc plot-rtz-grid -I ... --source ...` |
+| Extract and plot one StepPack station spectrum | `fastxc extract-stepack --workspace ... --timestamp ... --station ... --plot` |
+| Replot an exported spectrum MAT file | `fastxc plot-stepack-mat -I ... -O ...` |
+
+`plot-rtz-grid` chooses a one-panel or 3x3 layout from the component count, and
+`extract-stepack --plot` writes both the `.mat` slice and a quick-look PNG. See
+[Tools](docs/TOOLS.md) for the full option reference.
+
 ## Quick Start
 
 Create a starter configuration:
@@ -196,6 +237,9 @@ python plot_rtz_distance_lines.py \
 
 The plotter reads only RTZ results under `stack/rtz_*_sourcepack`. If PWS or
 TF-PWS stacking is enabled, use `--method pws` or `--method tfpws`.
+If you have already exported SAC files under `result_ncf/` with `unpack`, use
+`fastxc plot-rtz-grid` for single-component or RTZ/ENZ 3x3 virtual-source
+gathers. See [Tools](docs/TOOLS.md).
 
 ## Documentation
 
@@ -370,12 +414,26 @@ Use the default `unpack` stage, or run `fastxc unpack` manually, when you need
 traditional SAC files. In other words, SAC is the input and final export format;
 pack + index is the main internal format for the later pipeline.
 
+The old BigSAC concatenation/extraction path has been removed from the current
+pipeline and tool surface. The supported flow is
+`stepack -> xcpack -> SourcePack -> stack/rotate -> unpack`; for inspection,
+export SAC from SourcePack or use the StepPack/result-SAC tools below.
+
 Optional standalone tools are handled outside the main pipeline:
 
 ```bash
 fastxc sac2dat -I /path/to/sac_dir -O /path/to/dat_dir
+fastxc sourcepack -I /path/to/workspace/ncf -O /path/to/workspace/sourcepack
 fastxc unpack -I /path/to/sourcepack_index.tsv -O /path/to/sac_dir
+fastxc plot-rtz-grid -I /path/to/result_ncf/ncf_linear_RTZ --source A7K2
+fastxc extract-stepack --workspace /path/to/workspace --timestamp 2023.001.0000 --station A7K2 -O A7K2.stepack.mat --plot
 ```
+
+`plot-rtz-grid` auto-detects single-component and three-component outputs:
+single-component results are drawn as one panel, while RTZ/ENZ-style
+three-component results are drawn as a 3x3 grid. `extract-stepack --plot`
+writes both the `.mat` slice and a quick-look PNG; existing `.mat` files can
+still be replotted with `fastxc plot-stepack-mat`.
 
 ## Project Layout
 

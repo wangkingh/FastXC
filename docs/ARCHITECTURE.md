@@ -34,7 +34,8 @@ unpack
 
 ```text
 inventory/
-  SAC discovery, NSL IDs, station metadata, path IDs, allowed path tables
+  SAC discovery, files_groups normalization, NSL IDs, station metadata,
+  path IDs, allowed path tables
 
 adapters/
   Python-to-native command construction
@@ -66,3 +67,16 @@ runtime/
 The normal pipeline keeps these binary/index formats until the final explicit
 `unpack` step. Traditional SAC files are an export product, not an internal
 working format.
+
+## Retired Compatibility Paths
+
+The current mainline no longer uses BigSAC concatenation or the old BigSAC
+extract toolchain. Native XC writes pack/index records, stack stages consume
+SourcePack indexes, and final human-readable SAC output is produced only by
+`unpack`.
+
+Planner inputs are also normalized around the current `[seisarrayN]` model:
+inventory preparation passes a `files_groups` mapping keyed by group id. The
+older `files_group1/files_group2` compatibility API and related
+`stas1/times1` config backfill fields are no longer part of the maintained
+pipeline.

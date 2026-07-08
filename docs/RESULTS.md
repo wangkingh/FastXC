@@ -19,5 +19,8 @@ That smoke configuration reads the bundled example data under `example/data`
 and writes the ignored workspace under `example/workspace`.
 
 The public plotting helper lives with the bundled example:
-`example/plot_rtz_distance_lines.py`. Project-local inspection scripts and
-machine-specific result folders should stay outside the public repository.
+`example/plot_rtz_distance_lines.py`. The packaged CLI also provides
+`fastxc plot-rtz-grid` for unpacked single-component or 3x3 result SAC files
+and `fastxc extract-stepack --plot` for StepPack spectrum inspection.
+Project-local inspection scripts, generated plots, and machine-specific result
+folders should stay outside the public repository.

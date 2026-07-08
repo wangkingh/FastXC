@@ -629,10 +629,10 @@ std::string TfpwsSourcePackShardWriter::final_pair_path(const SourcePackRecord &
                record.src_station + "-" + record.rec_station + "." +
                record.src_component + "-" + record.rec_component;
     }
-    const std::string old_suffix = ".bigsac";
-    std::size_t pos = path.rfind(old_suffix);
-    if (pos != std::string::npos && pos + old_suffix.size() == path.size())
-        path.replace(pos, old_suffix.size(), ".tfpws.sac");
+    const std::string sac_suffix = ".sac";
+    std::size_t pos = path.rfind(sac_suffix);
+    if (pos != std::string::npos && pos + sac_suffix.size() == path.size())
+        path.replace(pos, sac_suffix.size(), ".tfpws.sac");
     else
         path += ".tfpws.sac";
     return path;

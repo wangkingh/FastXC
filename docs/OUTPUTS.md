@@ -46,6 +46,11 @@ workspace_dir/
 `external_geo_tsv`、`distance_range`、`azimuth_range`、`group_pair_mode` 和
 `autocorr_mode`。
 
+当前 prepare 阶段内部统一使用按 group id 组织的 `files_groups` 映射；旧的
+`files_group1/files_group2` 兼容入口已经移除。`external_geo_tsv` 如果解析成功
+但没有更新任何台站，且路径筛选最终得到 0 条 allowed paths，FastXC 会在
+SAC2SPEC 之前直接报错，避免空几何继续流到 XC 阶段。
+
 ## `run`: SAC2SPEC
 
 SAC2SPEC 会把 SAC 时域数据切窗、预处理并转换为频域 SEGSPEC。
@@ -75,7 +80,9 @@ XC 阶段执行互相关，正式流程写入 packed NCF。
 | `progress/xc_progress.tsv` | native XC 与 side-task 进度。 |
 
 `xcpack` 不是最终人工浏览格式，后续 SourcePack、stack 和 rotate 会继续引用
-这些 pack 中的记录。
+这些 pack 中的记录。当前 native XC 不再生成 BigSAC 结果文件；索引中的最终
+pair 语义使用普通 `.sac` final pair path，后续通过 SourcePack/stack/unpack
+继续流转。
 
 ## `run`: SourcePack
 
@@ -132,6 +139,9 @@ python example/plot_rtz_distance_lines.py \
   --lag-window 20
 ```
 
+如果已经导出到 `result_ncf/`，也可以使用 `fastxc plot-rtz-grid` 绘制单分量
+或 RTZ/ENZ 九分量虚拟炮集；该工具读取 unpack 后的 SAC 文件。
+
 ## `run`: Unpack
 
 `[advance.storage].unpack_enabled = True` 是默认设置。它会把 SourcePack 或
@@ -141,10 +151,12 @@ stack 结果导出为传统 SAC 文件；如果只想保留紧凑的 SourcePack 
 | 路径 | 说明 |
 | --- | --- |
 | `result_ncf/` | 固定导出目录，即 `workspace_dir/result_ncf`。 |
-| `ncf_<method>_<component_frame>/.../*.SAC` | legacy 风格 SAC 结果目录，具体取决于 `unpack_target` 和启用的 stack 方法。 |
+| `ncf_<method>_<component_frame>/.../*.SAC` | SAC 结果目录，具体取决于 `unpack_target`、启用的 stack 方法和分量数量。 |
 
-导出 SAC 会增加文件数量和磁盘占用；这些产物属于本地 workspace 输出，通常
-不应提交到仓库。
+单分量 stack 会保留原始分量标签，例如 `ncf_linear_BHZ` 或 `ncf_linear_Z`；
+三分量未旋转 stack 使用 `ENZ`，例如 `ncf_linear_ENZ`；旋转后结果使用 `RTZ`，
+例如 `ncf_linear_RTZ`。导出 SAC 会增加文件数量和磁盘占用；这些产物属于本地
+workspace 输出，通常不应提交到仓库。
 
 ## 运行审计文件
 

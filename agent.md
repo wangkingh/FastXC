@@ -198,7 +198,6 @@ result_ncf/
 *.stepack
 *.xcpack
 *.pack
-*.bigsac
 ```
 
 `example/data` is intentionally kept because it makes

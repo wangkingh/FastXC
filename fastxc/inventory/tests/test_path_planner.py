@@ -7,7 +7,6 @@ from pathlib import Path
 from fastxc.inventory.planner import (
     build_path_plan,
     filter_group_by_path_plan,
-    station_time_rows_from_group,
     write_path_plan,
     write_timestamp_manifests,
 )
@@ -18,6 +17,10 @@ NVHDR_OFFSET = 70 * 4 + 6 * 4
 STLA_OFFSET = 31 * 4
 STLO_OFFSET = 32 * 4
 STEL_OFFSET = 33 * 4
+
+
+def _build_single_group_plan(files_group, **kwargs):
+    return build_path_plan(files_groups={"1": files_group}, **kwargs)
 
 
 class TestPathPlanner(unittest.TestCase):
@@ -36,7 +39,7 @@ class TestPathPlanner(unittest.TestCase):
             ("STA03", self.timestamp): self._station_info("STA03", 10.0, 10.0),
         }
 
-        plan = build_path_plan(
+        plan = _build_single_group_plan(
             files_group,
             distance_range="0/20",
             azimuth_range="-1/360",
@@ -49,16 +52,13 @@ class TestPathPlanner(unittest.TestCase):
 
         filtered = filter_group_by_path_plan(files_group, "1", plan)
         self.assertEqual(set(key[0] for key in filtered), {"STA01", "STA02"})
-        stations, times = station_time_rows_from_group(filtered)
-        self.assertEqual(stations, ["STA01", "STA02"])
-        self.assertEqual(times, [self.timestamp, self.timestamp])
 
     def test_default_plan_keeps_single_station_autocorr(self):
         files_group = {
             ("STA01", self.timestamp): self._station_info("STA01", 0.0, 0.0),
         }
 
-        plan = build_path_plan(files_group)
+        plan = _build_single_group_plan(files_group)
 
         self.assertEqual(len(plan.nodes), 1)
         self.assertEqual([path.path_id_text for path in plan.paths], ["00010001"])
@@ -71,7 +71,7 @@ class TestPathPlanner(unittest.TestCase):
             ("STA01", self.timestamp): self._station_info("STA01", 0.0, 0.0),
             ("STA02", self.timestamp): self._station_info("STA02", 0.0, 0.1),
         }
-        plan = build_path_plan(files_group, allow_autocorr=False)
+        plan = _build_single_group_plan(files_group, allow_autocorr=False)
 
         output_dir = self.root / "path_plan"
         write_path_plan(plan, output_dir)
@@ -99,7 +99,7 @@ class TestPathPlanner(unittest.TestCase):
             "STA02\t0.0\t0.1\t2.0\n"
         )
 
-        plan = build_path_plan(
+        plan = _build_single_group_plan(
             files_group,
             distance_range="0/20",
             azimuth_range="-1/360",
@@ -126,7 +126,7 @@ class TestPathPlanner(unittest.TestCase):
             "STA02\t0.0\t0.1\t2.0\n"
         )
 
-        plan = build_path_plan(
+        plan = _build_single_group_plan(
             files_group,
             distance_range="0/20",
             azimuth_range="-1/360",
@@ -170,7 +170,7 @@ class TestPathPlanner(unittest.TestCase):
             ("STA01", self.timestamp): self._station_info("STA01", 0.0, 0.0),
             ("STA02", self.timestamp): self._station_info("STA02", 0.0, 0.1),
         }
-        plan = build_path_plan(files_group, allow_autocorr=False)
+        plan = _build_single_group_plan(files_group, allow_autocorr=False)
 
         manifest_root = self.root / "manifest" / "seisarray1"
         write_timestamp_manifests(files_group, "1", plan, manifest_root)
@@ -230,9 +230,9 @@ class TestPathPlanner(unittest.TestCase):
             ("STA02", self.timestamp): self._station_info("STA02", 0.0, 0.1),
         }
 
-        off = build_path_plan(files_group, autocorr_mode="off")
-        include = build_path_plan(files_group, autocorr_mode="include")
-        only = build_path_plan(files_group, autocorr_mode="only")
+        off = _build_single_group_plan(files_group, autocorr_mode="off")
+        include = _build_single_group_plan(files_group, autocorr_mode="include")
+        only = _build_single_group_plan(files_group, autocorr_mode="only")
 
         self.assertEqual([path.path_id_text for path in off.paths], ["00010002"])
         self.assertEqual(

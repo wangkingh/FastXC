@@ -175,7 +175,7 @@ int build_output_path(char *out,
     return -1;
   if (create_dirs && mkdir_p(dir2, 0755) != 0)
     return -1;
-  n = snprintf(out, out_size, "%s/%s-%s.%s-%s.%s-%s.bigsac",
+  n = snprintf(out, out_size, "%s/%s-%s.%s-%s.%s-%s.sac",
                dir2,
                src.network.c_str(), rec.network.c_str(),
                src.station.c_str(), rec.station.c_str(),
