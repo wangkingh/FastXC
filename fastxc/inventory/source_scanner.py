@@ -13,6 +13,8 @@ from .arrays import SeisArray
 
 logger = logging.getLogger(__name__)
 
+_CANONICAL_THREE_COMPONENTS = ("E", "N", "Z")
+
 
 def _read_station_list(sta_list_path: str) -> list[str]:
     station_list: list[str] = []
@@ -80,6 +82,7 @@ def _gen_seis_file_group(
     seis_array = SeisArray(sac_dir, pattern)
     seis_array.match(threads=cpu_workers)
     seis_array.filter(criteria, threads=cpu_workers)
+    _apply_component_label_map(seis_array.filtered_files or [], component_list)
 
     # Always include network/location in the key. The matcher supplies stable
     # defaults, so this avoids accidental collisions when multiple source
@@ -88,6 +91,29 @@ def _gen_seis_file_group(
     sort_labels = ["component"]
     seis_array.group(labels=group_labels, sort_labels=sort_labels, filtered=True)
     return seis_array.files_group or {}
+
+
+def _apply_component_label_map(files: list[Dict], component_list: list[str]) -> None:
+    label_map = _component_label_map(component_list)
+    if not label_map:
+        return
+
+    for file_info in files:
+        raw_component = str(file_info.get("component", ""))
+        canonical_component = label_map.get(raw_component)
+        if canonical_component is None:
+            continue
+        file_info.setdefault("raw_component", raw_component)
+        file_info["component"] = canonical_component
+
+
+def _component_label_map(component_list: list[str]) -> dict[str, str]:
+    components = [str(component).strip() for component in component_list if str(component).strip()]
+    if len(components) != 3:
+        return {}
+    if len(set(components)) != len(components):
+        raise ValueError("three-component component_list entries must be unique")
+    return dict(zip(components, _CANONICAL_THREE_COMPONENTS))
 
 
 def organize_seisarrays(
