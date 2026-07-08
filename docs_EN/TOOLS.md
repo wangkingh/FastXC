@@ -224,27 +224,6 @@ Options:
 - `--smooth-step`, `--smooth-frequency`: smoothing strengths.
 - `--no-smooth`: disable smoothing.
 
-## Distributed Helper Commands
-
-These commands support static timestamp sharding and local/remote task
-scheduling. They are not part of the minimal single-machine workflow:
-
-```bash
-fastxc plan config.ini -N 8 -O workspace/distributed
-fastxc run-plan workspace/distributed/run_plan.tsv -j 2
-fastxc collect-plan workspace/distributed/run_plan.tsv
-```
-
-Meanings:
-
-- `plan`: creates task configs and `run_plan.tsv` by timestamp.
-- `run-plan`: runs plan tasks concurrently on the local machine.
-- `collect-plan`: collects task SourcePack indexes and writes
-  `sourcepack_inputs.txt` for the main workspace.
-
-These commands are most useful for HPC or multi-node experiments. Ordinary runs
-can use `prepare` + `run`.
-
 ## Which Tool To Use
 
 - Re-export final SAC: `fastxc unpack`.

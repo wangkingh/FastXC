@@ -32,6 +32,8 @@ All notable project changes are recorded here. Dates use `YYYY-MM-DD`.
   SourcePack outputs are materialized products.
 - Clarified that `docs_ZH/TOOLS.md` and `docs_EN/TOOLS.md` cover helper tools
   only; config-driven stage rerun commands stay in the README workflow section.
+- Temporarily kept distributed task-management commands out of the public tool
+  quick references.
 - Reworked the Chinese README into a public user guide and moved migration
   rationale, cleanup notes, and architecture-change context into changelog/docs
   instead of the top-level usage page.

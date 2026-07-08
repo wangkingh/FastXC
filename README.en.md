@@ -152,13 +152,10 @@ the recommended path remains `prepare` + `run`.
 
 The standard workflow is still `prepare` + `run`; compute-stage reruns are
 covered in the preceding workflow paragraph. The table below only lists helper
-tools for inspection, manual export, plotting, and distributed task management:
+tools for inspection, manual export, and plotting:
 
 | Use case | Command |
 | --- | --- |
-| Create a distributed timestamp task plan | `fastxc plan config.ini -N ... -O ...` |
-| Run a distributed task plan | `fastxc run-plan ...` |
-| Collect distributed SourcePack indexes | `fastxc collect-plan ...` |
 | Convert SAC to dat | `fastxc sac2dat -I ... -O ...` |
 | Build SourcePack manually | `fastxc sourcepack -I ... -O ...` |
 | Export SAC from SourcePack | `fastxc unpack -I ... -O ...` |
