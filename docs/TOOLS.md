@@ -12,7 +12,6 @@ fastxc run config.ini
 
 | 命令 | 作用 | 常见输入 | 常见输出 |
 | --- | --- | --- | --- |
-| `fastxc extract` | 拆分 BigSAC 文件 | 包含 `.bigsac` 的目录 | 普通 `.sac` 文件 |
 | `fastxc sac2dat` | SAC 转文本 DAT | 包含 `.sac` 的目录 | `.dat` 文本文件 |
 | `fastxc sourcepack` | 从 XC pack 手动生成 SourcePack 索引 | `ncf/` 或 `ncf/xcpack/` | `sourcepack/<timestamp>/sourcepack_index.tsv` |
 | `fastxc unpack` | 从 SourcePack 导出普通 SAC | SourcePack 目录或 `sourcepack_index.tsv` | 普通 `.sac` 文件 |
@@ -91,25 +90,6 @@ workspace/sourcepack/2023.002.0000/sourcepack_index.tsv
 ```
 
 这些索引指向 `ncf/xcpack/*.xcpack` 中的真实 payload，不会复制互相关数据。
-
-## `fastxc extract`
-
-`extract` 用于把 BigSAC 文件拆成多个普通 SAC 文件。它会递归扫描输入目录下的
-`.bigsac` 文件，并按每条 SAC record 写出单独文件。
-
-```bash
-fastxc extract \
-  -I /path/to/bigsac_dir \
-  -O /path/to/extracted_sac
-```
-
-参数：
-
-- `-I, --input`：包含 `.bigsac` 文件的目录。
-- `-O, --output`：拆分后的 SAC 输出目录。
-
-这个工具主要服务旧结果、调试结果或外部 BigSAC 数据。当前 FastXC 主流程后半段
-主要使用 pack + index 格式，最终导出通常优先使用 `fastxc unpack`。
 
 ## `fastxc sac2dat`
 
@@ -242,7 +222,6 @@ fastxc collect-plan workspace/distributed/run_plan.tsv
 
 - 想重新导出最终 SAC：用 `fastxc unpack`。
 - XC 已完成但 SourcePack 缺失或损坏：用 `fastxc sourcepack` 重建索引。
-- 手里有 BigSAC 想拆成普通 SAC：用 `fastxc extract`。
 - 想把少量 SAC 变成文本快速查看：用 `fastxc sac2dat`。
 - 想检查 RTZ 九分量虚拟炮集：用 `fastxc plot-rtz-grid`。
 - 想检查 SAC2SPEC 产生的单台站频谱：用 `fastxc extract-stepack`，再用

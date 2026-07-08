@@ -33,8 +33,6 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_run(args)
     if args.command == "sac2dat":
         return _cmd_sac2dat(args)
-    if args.command == "extract":
-        return _cmd_extract(args)
     if args.command == "sourcepack":
         return _cmd_sourcepack(args)
     if args.command == "unpack":
@@ -97,10 +95,6 @@ def build_parser() -> argparse.ArgumentParser:
     sac2dat_parser = sub.add_parser("sac2dat", help="convert stacked SAC files to DAT text files")
     sac2dat_parser.add_argument("-I", "--input", required=True, help="input directory containing .sac files")
     sac2dat_parser.add_argument("-O", "--output", required=True, help="output DAT directory")
-
-    extract_parser = sub.add_parser("extract", help="extract BigSAC files to SAC files")
-    extract_parser.add_argument("-I", "--input", required=True, help="input directory containing .bigsac files")
-    extract_parser.add_argument("-O", "--output", required=True, help="output directory for extracted SAC files")
 
     sourcepack_parser = sub.add_parser("sourcepack", help="group XC pack output by timestamp and virtual source")
     sourcepack_parser.add_argument("-I", "--input", required=True, help="XC output root or xcpack directory")
@@ -337,18 +331,6 @@ def _cmd_sac2dat(args: argparse.Namespace) -> int:
         logging.getLogger(__name__).error("%s", exc)
         return 1
     print(f"Converted {len(results)} SAC file(s) to DAT.")
-    return 0
-
-
-def _cmd_extract(args: argparse.Namespace) -> int:
-    from .tools.extract import extract_bigsac_dir
-
-    try:
-        count = extract_bigsac_dir(args.input, args.output)
-    except Exception as exc:
-        logging.getLogger(__name__).error("%s", exc)
-        return 1
-    print(f"Extracted {count} SAC segment(s).")
     return 0
 
 
