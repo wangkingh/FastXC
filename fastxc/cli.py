@@ -39,6 +39,12 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_sourcepack(args)
     if args.command == "unpack":
         return _cmd_unpack(args)
+    if args.command == "plot-rtz-grid":
+        return _cmd_plot_rtz_grid(args)
+    if args.command == "extract-stepack":
+        return _cmd_extract_stepack(args)
+    if args.command == "plot-stepack-mat":
+        return _cmd_plot_stepack_mat(args)
 
     parser.print_help()
     return 2
@@ -116,6 +122,61 @@ def build_parser() -> argparse.ArgumentParser:
     unpack_parser.add_argument("-I", "--input", required=True, help="sourcepack directory or sourcepack_index.tsv")
     unpack_parser.add_argument("-O", "--output", required=True, help="output directory for unpacked SAC files")
     unpack_parser.add_argument("-T", "--threads", type=int, default=1, help="parallel output file workers")
+
+    plot_rtz_parser = sub.add_parser("plot-rtz-grid", help="plot a 3x3 RTZ gather from unpacked result_ncf SAC files")
+    plot_rtz_parser.add_argument("-I", "--input", required=True, help="unpacked RTZ result directory")
+    plot_rtz_parser.add_argument("--source", required=True, help="virtual source station or key")
+    plot_rtz_parser.add_argument("-O", "--output", help="output PNG path")
+    plot_rtz_parser.add_argument("--title", default="AUTO", help="figure title")
+    plot_rtz_parser.add_argument("--receiver", action="append", default=[], help="receiver station/key to include")
+    plot_rtz_parser.add_argument("--lag-window", type=float, default=20.0, help="half window in seconds around zero lag")
+    plot_rtz_parser.add_argument("--scale", type=float, default=0.0, help="amplitude scale in km; 0 means auto")
+    plot_rtz_parser.add_argument("--max-receivers", type=int, default=0, help="maximum receivers to draw")
+    plot_rtz_parser.add_argument("--sample-stride", type=int, default=1, help="draw every Nth receiver")
+    plot_rtz_parser.add_argument("--min-distance", type=float, help="minimum receiver distance in km")
+    plot_rtz_parser.add_argument("--max-distance", type=float, help="maximum receiver distance in km")
+    plot_rtz_parser.add_argument("--linewidth", type=float, default=0.55, help="trace line width")
+    plot_rtz_parser.add_argument("--dpi", type=int, default=180, help="output figure DPI")
+
+    extract_stepack_parser = sub.add_parser("extract-stepack", help="extract one station's spectra from stepack")
+    extract_stepack_parser.add_argument("--workspace", help="FastXC workspace containing stepack/")
+    extract_stepack_parser.add_argument("--stepack", help="stepack directory or a single stepack TSV")
+    extract_stepack_parser.add_argument("--timestamp", required=True, help="timestamp to extract")
+    extract_stepack_parser.add_argument("--station", required=True, help="station code or full key fragment")
+    extract_stepack_parser.add_argument("--network", help="optional network filter")
+    extract_stepack_parser.add_argument("--location", help="optional location filter")
+    extract_stepack_parser.add_argument("--components", default="ALL", help="comma-separated components; default ALL")
+    extract_stepack_parser.add_argument(
+        "--component-match",
+        choices=("exact", "tail", "auto"),
+        default="auto",
+        help="component matching mode for --components",
+    )
+    extract_stepack_parser.add_argument("-O", "--output", required=True, help="output .mat path")
+    extract_stepack_parser.add_argument("--no-compress", action="store_true", help="disable .mat compression")
+
+    plot_stepack_parser = sub.add_parser("plot-stepack-mat", help="plot spectra exported by extract-stepack")
+    plot_stepack_parser.add_argument("-I", "--input", required=True, help="input .mat file")
+    plot_stepack_parser.add_argument("-O", "--output", required=True, help="output PNG path")
+    plot_stepack_parser.add_argument(
+        "--quantity",
+        choices=("amplitude", "power", "phase", "real", "imag"),
+        default="amplitude",
+        help="spectrum quantity to plot",
+    )
+    plot_stepack_parser.add_argument("--db", action="store_true", help="plot amplitude/power in dB")
+    plot_stepack_parser.add_argument("--min-frequency", type=float, default=0.0, help="minimum frequency in Hz")
+    plot_stepack_parser.add_argument("--max-frequency", type=float, help="maximum frequency in Hz")
+    plot_stepack_parser.add_argument("--smooth-step", type=float, default=0.35, help="Gaussian smoothing sigma along step axis")
+    plot_stepack_parser.add_argument(
+        "--smooth-frequency",
+        type=float,
+        default=1.0,
+        help="Gaussian smoothing sigma along frequency-bin axis",
+    )
+    plot_stepack_parser.add_argument("--no-smooth", action="store_true", help="disable plot smoothing")
+    plot_stepack_parser.add_argument("--title", default="AUTO", help="figure title")
+    plot_stepack_parser.add_argument("--dpi", type=int, default=180, help="output figure DPI")
 
     return parser
 
@@ -322,6 +383,60 @@ def _cmd_unpack(args: argparse.Namespace) -> int:
         f"Unpacked {result.record_count} record(s) into {result.file_count} SAC file(s), "
         f"{result.bytes_written} byte(s)."
     )
+    return 0
+
+
+def _cmd_plot_rtz_grid(args: argparse.Namespace) -> int:
+    from .tools.plot_rtz_grid import run
+
+    try:
+        result = run(args)
+    except Exception as exc:
+        logging.getLogger(__name__).error("%s", exc)
+        return 1
+    print(f"Wrote {result.output_path}")
+    print(
+        f"Source {result.source_key}: plotted {result.receiver_count} receiver(s), "
+        f"{result.trace_count} trace(s)."
+    )
+    return 0
+
+
+def _cmd_extract_stepack(args: argparse.Namespace) -> int:
+    from .tools.extract_stepack import run
+
+    try:
+        result = run(args)
+    except Exception as exc:
+        logging.getLogger(__name__).error("%s", exc)
+        return 1
+    print(
+        f"Wrote {result.output_path} "
+        f"({result.component_count} component(s), {result.nstep} step(s), {result.nspec} frequency bin(s))."
+    )
+    return 0
+
+
+def _cmd_plot_stepack_mat(args: argparse.Namespace) -> int:
+    from .tools.plot_stepack_mat import plot_stepack_mat
+
+    try:
+        output = plot_stepack_mat(
+            args.input,
+            output=args.output,
+            max_frequency=args.max_frequency,
+            min_frequency=args.min_frequency,
+            quantity=args.quantity,
+            db=args.db,
+            smooth_step=0.0 if args.no_smooth else args.smooth_step,
+            smooth_frequency=0.0 if args.no_smooth else args.smooth_frequency,
+            dpi=args.dpi,
+            title=args.title,
+        )
+    except Exception as exc:
+        logging.getLogger(__name__).error("%s", exc)
+        return 1
+    print(f"Wrote {output}")
     return 0
 
 
