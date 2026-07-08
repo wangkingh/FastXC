@@ -16,6 +16,9 @@ fastxc run config.ini
 | `fastxc sac2dat` | SAC 转文本 DAT | 包含 `.sac` 的目录 | `.dat` 文本文件 |
 | `fastxc sourcepack` | 从 XC pack 手动生成 SourcePack 索引 | `ncf/` 或 `ncf/xcpack/` | `sourcepack/<timestamp>/sourcepack_index.tsv` |
 | `fastxc unpack` | 从 SourcePack 导出普通 SAC | SourcePack 目录或 `sourcepack_index.tsv` | 普通 `.sac` 文件 |
+| `fastxc plot-rtz-grid` | 绘制 unpack 后的 RTZ 3x3 虚拟炮集 | `result_ncf/ncf_*_RTZ` | PNG |
+| `fastxc extract-stepack` | 从 StepPack 抽取单台站频谱 | `workspace/stepack` | `.mat` |
+| `fastxc plot-stepack-mat` | 绘制 StepPack `.mat` 频谱图 | `extract-stepack` 导出的 `.mat` | PNG |
 
 ## `fastxc unpack`
 
@@ -127,6 +130,94 @@ fastxc sac2dat \
 这个命令适合小规模检查。大规模结果建议保留 SAC 或 SourcePack，避免文本格式放大
 存储体积。
 
+## `fastxc plot-rtz-grid`
+
+`plot-rtz-grid` 从已经 unpack 出来的 RTZ 结果目录中，选择一个虚拟源并绘制
+`R/T/Z x R/T/Z` 的 3x3 虚拟炮集。每个子图会按震中距排列接收台站，适合快速检查
+旋转后的九分量互相关结果。
+
+```bash
+fastxc plot-rtz-grid \
+  -I workspace/result_ncf/ncf_linear_RTZ \
+  --source 45002 \
+  -O workspace/plots/rtz_grid_45002.png
+```
+
+参数：
+
+- `-I, --input`：unpack 后的 RTZ SAC 目录，例如 `ncf_linear_RTZ`。
+- `--source`：虚拟源台站名，也可以给 `NET.STA`。
+- `-O, --output`：PNG 输出路径；不指定时写到输入目录下。
+- `--receiver`：只绘制指定接收台站；可以重复指定。
+- `--lag-window`：零时延两侧绘图窗口，单位秒。
+- `--min-distance, --max-distance`：按距离筛选接收台站，单位 km。
+- `--max-receivers, --sample-stride`：限制或抽稀绘图台站数量。
+- `--scale`：波形横向缩放；默认自动估计。
+
+这个工具只读取已经导出的 SAC 文件，不直接读取 SourcePack。距离优先使用 SAC 头段
+`dist`，缺失时用 `gcarc` 近似换算。
+
+## `fastxc extract-stepack`
+
+`extract-stepack` 从 SAC2SPEC 输出的 `workspace/stepack/` 中，按
+`timestamp + station/network/location + component` 抽取一个台站的多 step 频谱，
+并导出为 MATLAB 可读的 `.mat` 文件，用于检查 SAC2SPEC 到 XC 之间的中间结果。
+
+```bash
+fastxc extract-stepack \
+  --workspace workspace \
+  --timestamp 2023.001.0000 \
+  --station A7K2 \
+  --components E,N,Z \
+  -O workspace/plots/A7K2.2023.001.0000.stepack.mat
+```
+
+参数：
+
+- `--workspace`：FastXC workspace；工具会读取其中的 `stepack/*.tsv`。
+- `--stepack`：也可以直接指定 stepack 目录或单个 stepack TSV。
+- `--timestamp`：要抽取的时间戳。
+- `--station`：台站名。
+- `--network, --location`：可选的 network/location 过滤。
+- `--components`：逗号分隔的分量列表；默认 `ALL`。
+- `--component-match`：分量匹配方式，支持 `exact`、`tail`、`auto`。
+- `--no-compress`：关闭 `.mat` 压缩。
+
+`auto` 分量匹配会先尝试精确匹配，再尝试末尾分量匹配。因此 `--components E,N,Z`
+可以匹配 `BHE,BHN,BHZ` 这类三分量命名；如果只想抽取某个原始通道，也可以直接写
+`--components BHZ`。
+
+导出的 `.mat` 主要包含：
+
+- `spectra`：形状为 `component x step x frequency` 的复数频谱。
+- `frequency_hz`：频率轴。
+- `step_index`、`timestamp`：step 编号和时间戳。
+- `components`、`networks`、`stations`、`locations`：对应的台站通道信息。
+- `stla`、`stlo`：台站坐标。
+
+## `fastxc plot-stepack-mat`
+
+`plot-stepack-mat` 绘制 `extract-stepack` 导出的 `.mat` 文件，把每个分量的
+step-frequency 频谱画成一张图。默认会做轻微高斯平滑，便于检查整体能量结构。
+
+```bash
+fastxc plot-stepack-mat \
+  -I workspace/plots/A7K2.2023.001.0000.stepack.mat \
+  -O workspace/plots/A7K2.2023.001.0000.stepack.png \
+  --max-frequency 1.0 \
+  --db
+```
+
+参数：
+
+- `-I, --input`：`extract-stepack` 导出的 `.mat` 文件。
+- `-O, --output`：PNG 输出路径。
+- `--quantity`：绘制 `amplitude`、`power`、`phase`、`real` 或 `imag`。
+- `--db`：对 amplitude/power 使用 dB 显示。
+- `--min-frequency, --max-frequency`：限制频率范围。
+- `--smooth-step, --smooth-frequency`：控制 step 方向和频率方向平滑强度。
+- `--no-smooth`：关闭平滑。
+
 ## 分布式辅助命令
 
 以下命令服务静态 timestamp 切片和本地/远程任务调度，不属于普通单机用户的最小
@@ -147,31 +238,12 @@ fastxc collect-plan workspace/distributed/run_plan.tsv
 
 这组命令更适合 HPC/多节点实验；普通流程使用 `prepare` + `run` 即可。
 
-## 计划中的 `extract-stepack`
-
-当前还没有正式的 `fastxc extract-stepack` 命令。计划中的用途是从 SAC2SPEC 输出
-的 `workspace/stepack/` 中，按 `timestamp + station/network/location + component`
-抽取一个台站的多 step 频谱，并导出为 `.mat` 或 `.npz`，用于检查 SAC2SPEC 到
-XC 之间的中间结果。
-
-预期形态可能类似：
-
-```bash
-fastxc extract-stepack \
-  --workspace workspace \
-  --timestamp 2023.001.0000 \
-  --station A7K2 \
-  --components E,N,Z \
-  -O A7K2.2023.001.0000.stepack.mat
-```
-
-这个工具会复用 `stepack/*.tsv` 里的索引信息读取二进制 `.stepack`，不需要重新
-运行 SAC2SPEC 或 XC。正式实现后，应在本文档中把本节移动到“当前可用工具”。
-
 ## 什么时候用哪个工具
 
 - 想重新导出最终 SAC：用 `fastxc unpack`。
 - XC 已完成但 SourcePack 缺失或损坏：用 `fastxc sourcepack` 重建索引。
 - 手里有 BigSAC 想拆成普通 SAC：用 `fastxc extract`。
 - 想把少量 SAC 变成文本快速查看：用 `fastxc sac2dat`。
-- 想检查 SAC2SPEC 产生的单台站频谱：等待或实现 `extract-stepack`。
+- 想检查 RTZ 九分量虚拟炮集：用 `fastxc plot-rtz-grid`。
+- 想检查 SAC2SPEC 产生的单台站频谱：用 `fastxc extract-stepack`，再用
+  `fastxc plot-stepack-mat` 绘图。
