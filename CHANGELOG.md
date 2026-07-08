@@ -6,9 +6,9 @@ All notable project changes are recorded here. Dates use `YYYY-MM-DD`.
 
 ### Added
 
-- Added `docs/` as the stable public documentation home:
-  - `docs/ARCHITECTURE.md`
-  - `docs/RESULTS.md`
+- Split public documentation into language-specific homes:
+  - `docs_ZH/` for Chinese documentation.
+  - `docs_EN/` for English documentation.
 - Kept private validation matrices and large result artifacts outside the public
   repository.
 - Added `fastxc extract-stepack --plot` so StepPack inspection can export the

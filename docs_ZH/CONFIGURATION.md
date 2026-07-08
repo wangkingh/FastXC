@@ -211,7 +211,7 @@ SourcePack/stack 结果导出为传统 SAC 文件。如果只想保留紧凑的 
 
 单分量结果目录会保留原始分量名，例如 `ncf_linear_BHZ`；三分量未旋转结果使
 用 `ENZ`，旋转结果使用 `RTZ`。旧 BigSAC 导出/抽取路径已经废弃，当前人工查
-看结果请使用 `unpack` 导出的 SAC 或 `docs/TOOLS.md` 中的工具命令。
+看结果请使用 `unpack` 导出的 SAC 或 [工具命令](TOOLS.md) 中的工具。
 
 ## `[debug]`
 

@@ -1,6 +1,6 @@
 # FastXC
 
-[English](README.en.md) | [文档索引](docs/README.md) | [配置说明](docs/CONFIGURATION.md) | [架构说明](docs/ARCHITECTURE.md) | [输出说明](docs/OUTPUTS.md) | [工具命令](docs/TOOLS.md) | [结果策略](docs/RESULTS.md) | [更新日志](CHANGELOG.md)
+[English](README.en.md) | [文档索引](docs_ZH/README.md) | [配置说明](docs_ZH/CONFIGURATION.md) | [架构说明](docs_ZH/ARCHITECTURE.md) | [输出说明](docs_ZH/OUTPUTS.md) | [工具命令](docs_ZH/TOOLS.md) | [结果策略](docs_ZH/RESULTS.md) | [更新日志](CHANGELOG.md)
 
 本项目的 v2605 公开整理、文档重写和发布打包过程使用了 OpenAI Codex / GPT Pro 辅助。
 
@@ -162,7 +162,7 @@ fastxc rotate config.ini
 | 重绘已导出的频谱 MAT | `fastxc plot-stepack-mat -I ... -O ...` |
 
 `plot-rtz-grid` 会按结果分量数自动使用单图或 3x3 九宫格；`extract-stepack --plot`
-会同时写 `.mat` 和快速检查 PNG。更完整参数见 [工具命令](docs/TOOLS.md)。
+会同时写 `.mat` 和快速检查 PNG。更完整参数见 [工具命令](docs_ZH/TOOLS.md)。
 
 ## 快速开始
 
@@ -226,7 +226,7 @@ python plot_rtz_distance_lines.py \
 TF-PWS，可通过 `--method pws` 或 `--method tfpws` 绘制对应叠加结果。
 如果已经通过 `unpack` 导出了 `result_ncf/` 下的 SAC 文件，也可以使用
 `fastxc plot-rtz-grid` 绘制单分量或 RTZ/ENZ 九分量虚拟炮集；详见
-[工具命令](docs/TOOLS.md)。
+[工具命令](docs_ZH/TOOLS.md)。
 
 ## 主要配置项
 
@@ -289,7 +289,7 @@ debug = False
 字段，例如 `{YYYY}` + `{JJJ}` 或 `{YYYY}` + `{MM}` + `{DD}`。常用通配符：
 `{*}` 匹配任意字符串，`{?}` 匹配一个较短的非路径片段；重复出现的同名字段
 必须取相同值。更完整的字段和 pattern 规则见
-[配置说明](docs/CONFIGURATION.md)。
+[配置说明](docs_ZH/CONFIGURATION.md)。
 
 `sta_list` 是每个 `[seisarrayN]` 或 `[seisarrayN.source]` 自己的台站白名
 单；`NONE` 表示这个数据源不按台站筛选。文件格式是一行一个 station code，
@@ -356,7 +356,7 @@ log/
 
 `commands/` 会保留 Python 实际调用的 native 命令，便于审查和复现。
 各阶段产物的用途、是否可清理、以及 SourcePack/stack/rotate 的关系见
-[输出说明](docs/OUTPUTS.md)。
+[输出说明](docs_ZH/OUTPUTS.md)。
 
 ## 如何理解中间结果
 
@@ -385,7 +385,7 @@ PWS 和 TF-PWS 也使用同样的 pack + index 结构，只是由于 GPU worker 
 `stepack -> xcpack -> SourcePack -> stack/rotate -> unpack`；需要人工查看时，
 先从 SourcePack 导出 SAC，或使用下面的工具直接检查 StepPack/结果 SAC。
 
-常用手动工具见 [工具命令](docs/TOOLS.md)。例如：
+常用手动工具见 [工具命令](docs_ZH/TOOLS.md)。例如：
 
 ```bash
 fastxc sac2dat -I /path/to/sac_dir -O /path/to/dat_dir
@@ -402,13 +402,14 @@ fastxc extract-stepack --workspace /path/to/workspace --timestamp 2023.001.0000 
 
 ## 文档
 
-更长的项目说明放在 `docs/`：
+更长的中文项目说明放在 `docs_ZH/`，英文说明放在 `docs_EN/`：
 
-- [Configuration](docs/CONFIGURATION.md)：INI 字段、路径 pattern 和常见取值。
-- [Architecture](docs/ARCHITECTURE.md)：数据流和模块边界。
-- [Outputs](docs/OUTPUTS.md)：各阶段输出目录和产物用途。
-- [Tools](docs/TOOLS.md)：独立工具命令、手动导出、格式转换和调试用途。
-- [Results](docs/RESULTS.md)：公开仓库中的结果产物和本地输出保留策略。
+- [配置说明](docs_ZH/CONFIGURATION.md)：INI 字段、路径 pattern 和常见取值。
+- [架构说明](docs_ZH/ARCHITECTURE.md)：数据流和模块边界。
+- [输出说明](docs_ZH/OUTPUTS.md)：各阶段输出目录和产物用途。
+- [工具命令](docs_ZH/TOOLS.md)：独立工具命令、手动导出、格式转换和调试用途。
+- [结果策略](docs_ZH/RESULTS.md)：公开仓库中的结果产物和本地输出保留策略。
+- [English docs](docs_EN/README.md)：英文文档入口。
 - [Changelog](CHANGELOG.md)：架构调整、兼容性变化和历史决策。
 
 ## 项目目录
@@ -430,7 +431,8 @@ native/tfpws/        CUDA TF-PWS 后端
 configs/             公开 smoke 配置
 example/             内置示例：配置、匿名数据和绘图脚本
 tools/               可选独立工具
-docs/                架构和公开项目说明
+docs_ZH/             中文架构和公开项目说明
+docs_EN/             English architecture and public project notes
 ```
 
 ## 排错

@@ -1,7 +1,7 @@
 # FastXC Architecture
 
-FastXC is now organized around explicit intermediate data formats instead of
-large numbers of human-readable temporary files.
+FastXC is organized around explicit intermediate data formats instead of large
+numbers of human-readable temporary files.
 
 ## Main Flow
 
@@ -35,7 +35,7 @@ unpack
 ```text
 inventory/
   SAC discovery, files_groups normalization, NSL IDs, station metadata,
-  path IDs, allowed path tables
+  path IDs, and allowed path tables
 
 adapters/
   Python-to-native command construction
@@ -59,7 +59,7 @@ runtime/
   batch stores a header, NSLC table, and pitched `payload[step][nslc][freq]`
   spectra, with TSV sidecars describing virtual timestamp slices.
 - `xcpack`: native XC output packs, written under GPU memory and job sharding.
-- `sourcepack`: Source/receiver/component sorted indexes over pack records.
+- `sourcepack`: source/receiver/component sorted indexes over pack records.
   Immediately after XC it is primarily an index view over `ncf/xcpack`
   records. After stack or rotate it is a materialized product whose own pack
   files contain the newly computed traces.
