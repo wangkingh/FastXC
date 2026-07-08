@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 
 def enabled_stack_methods(cfg) -> list[str]:
@@ -14,13 +15,31 @@ def enabled_stack_methods(cfg) -> list[str]:
     return methods
 
 
-def unpack_product_name(target_name: str) -> str:
+def unpack_product_name(target_name: str, component_list: list[str] | tuple[str, ...] | None = None) -> str:
     rotate = target_name.startswith("rtz_")
     method = target_name.removeprefix("rtz_").removesuffix("_sourcepack")
     if method == "linearstack":
         method = "linear"
-    coord = "RTZ" if rotate else "Z"
+    coord = "RTZ" if rotate else _stack_component_system(component_list)
     return f"ncf_{method}_{coord}"
+
+
+def _stack_component_system(component_list: list[str] | tuple[str, ...] | None) -> str:
+    if component_list is None:
+        return "Z"
+    components = [str(component).strip() for component in component_list if str(component).strip()]
+    if len(components) == 1:
+        return _safe_product_token(components[0])
+    if len(components) == 3:
+        return "ENZ"
+    if components:
+        return _safe_product_token("_".join(components))
+    return "Z"
+
+
+def _safe_product_token(value: str) -> str:
+    cleaned = re.sub(r"[^0-9A-Za-z._-]+", "-", value).strip("-")
+    return cleaned or "COMP"
 
 
 def unpack_output_root(cfg) -> Path:
@@ -31,12 +50,13 @@ def unpack_targets(cfg) -> list[tuple[str, Path]]:
     out = cfg.storage.output_dir
     target = cfg.unpack.target
     methods = enabled_stack_methods(cfg)
+    component_list = cfg.primary_component_list
     stack = [
-        (unpack_product_name(f"{method}_sourcepack"), out / "stack" / f"{method}_sourcepack" / "STACK")
+        (unpack_product_name(f"{method}_sourcepack", component_list), out / "stack" / f"{method}_sourcepack" / "STACK")
         for method in methods
     ]
     rotate = [
-        (unpack_product_name(f"rtz_{method}_sourcepack"), out / "stack" / f"rtz_{method}_sourcepack" / "STACK")
+        (unpack_product_name(f"rtz_{method}_sourcepack", component_list), out / "stack" / f"rtz_{method}_sourcepack" / "STACK")
         for method in methods
     ]
 
