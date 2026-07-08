@@ -1,6 +1,6 @@
 # FastXC
 
-[English](README.en.md) | [文档索引](docs/README.md) | [配置说明](docs/CONFIGURATION.md) | [架构说明](docs/ARCHITECTURE.md) | [输出说明](docs/OUTPUTS.md) | [结果策略](docs/RESULTS.md) | [更新日志](CHANGELOG.md)
+[English](README.en.md) | [文档索引](docs/README.md) | [配置说明](docs/CONFIGURATION.md) | [架构说明](docs/ARCHITECTURE.md) | [输出说明](docs/OUTPUTS.md) | [工具命令](docs/TOOLS.md) | [结果策略](docs/RESULTS.md) | [更新日志](CHANGELOG.md)
 
 本项目的 v2605 公开整理、文档重写和发布打包过程使用了 OpenAI Codex / GPT Pro 辅助。
 
@@ -341,10 +341,11 @@ PWS 和 TF-PWS 也使用同样的 pack + index 结构，只是由于 GPU worker 
 导出。也就是说，SAC 是输入格式和最终导出格式，而不是 FastXC 后半段的主要工
 作格式。
 
-可选工具：
+常用手动工具见 [工具命令](docs/TOOLS.md)。例如：
 
 ```bash
 fastxc sac2dat -I /path/to/sac_dir -O /path/to/dat_dir
+fastxc sourcepack -I /path/to/workspace/ncf -O /path/to/workspace/sourcepack
 fastxc unpack -I /path/to/sourcepack_index.tsv -O /path/to/sac_dir
 ```
 
@@ -355,6 +356,7 @@ fastxc unpack -I /path/to/sourcepack_index.tsv -O /path/to/sac_dir
 - [Configuration](docs/CONFIGURATION.md)：INI 字段、路径 pattern 和常见取值。
 - [Architecture](docs/ARCHITECTURE.md)：数据流和模块边界。
 - [Outputs](docs/OUTPUTS.md)：各阶段输出目录和产物用途。
+- [Tools](docs/TOOLS.md)：独立工具命令、手动导出、格式转换和调试用途。
 - [Results](docs/RESULTS.md)：公开仓库中的结果产物和本地输出保留策略。
 - [Changelog](CHANGELOG.md)：架构调整、兼容性变化和历史决策。
 
