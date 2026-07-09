@@ -4,6 +4,7 @@ from importlib import import_module
 
 _EXPORTS = {
     "convert_sac_dir": ("fastxc.tools.sac2dat", "convert_sac_dir"),
+    "extract_ncf": ("fastxc.tools.extract_ncf", "extract_ncf"),
     "extract_stepack_to_mat": ("fastxc.tools.extract_stepack", "extract_stepack_to_mat"),
     "plot_stepack_mat": ("fastxc.tools.plot_stepack_mat", "plot_stepack_mat"),
     "plot_unpacked_rtz_grid": ("fastxc.tools.plot_rtz_grid", "plot_unpacked_rtz_grid"),
@@ -12,6 +13,7 @@ _EXPORTS = {
 
 __all__ = [
     "convert_sac_dir",
+    "extract_ncf",
     "extract_stepack_to_mat",
     "plot_stepack_mat",
     "plot_unpacked_rtz_grid",

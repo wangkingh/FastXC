@@ -150,11 +150,12 @@ fastxc rotate config.ini
 | SAC 转 dat | `fastxc sac2dat -I ... -O ...` |
 | 手动构建 SourcePack | `fastxc sourcepack -I ... -O ...` |
 | 从 SourcePack 导出 SAC | `fastxc unpack -I ... -O ...` |
+| 抽取单条 NCF SAC 记录 | `fastxc extract-ncf --workspace ... --timestamp ... --source ... --receiver ... --component-pair ... -O ...` |
 | 绘制 `result_ncf` 虚拟源炮集 | `fastxc plot-rtz-grid -I ... --source ...` |
 | 抽取并绘制某个 StepPack 台站频谱 | `fastxc extract-stepack --workspace ... --timestamp ... --station ... --plot` |
 | 重绘已导出的频谱 MAT | `fastxc plot-stepack-mat -I ... -O ...` |
 
-`plot-rtz-grid` 会按结果分量数自动使用单图或 3x3 九宫格；`extract-stepack --plot`
+`plot-rtz-grid` 会按结果分量数自动使用单图或 3x3 九宫格；`extract-ncf` 可从 SourcePack/XC pack 索引中复制单条 NCF SAC，不会重算 XC；`extract-stepack --plot`
 会同时写 `.mat` 和快速检查 PNG。更完整参数见 [工具命令](docs_ZH/TOOLS.md)。
 
 ## 快速开始

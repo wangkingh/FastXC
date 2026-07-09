@@ -15,6 +15,7 @@ fastxc run config.ini
 | `fastxc sac2dat` | SAC 转文本 DAT | 包含 `.sac` 的目录 | `.dat` 文本文件 |
 | `fastxc sourcepack` | 从 XC pack 手动生成 SourcePack 索引 | `ncf/` 或 `ncf/xcpack/` | `sourcepack/<timestamp>/sourcepack_index.tsv` |
 | `fastxc unpack` | 从 SourcePack 导出普通 SAC | SourcePack 目录或 `sourcepack_index.tsv` | 普通 `.sac` 文件 |
+| `fastxc extract-ncf` | 抽取单条已计算的 NCF SAC 记录 | SourcePack 索引、`ncf/xcpack` 或 workspace | `.sac` 文件 |
 | `fastxc plot-rtz-grid` | 绘制 unpack 后的单分量或 3x3 虚拟炮集 | `result_ncf/ncf_*_BHZ` 或 `result_ncf/ncf_*_RTZ` | PNG |
 | `fastxc extract-stepack` | 从 StepPack 抽取单台站频谱，可同时绘图 | `workspace/stepack` | `.mat`，可选 PNG |
 | `fastxc plot-stepack-mat` | 绘制 StepPack `.mat` 频谱图 | `extract-stepack` 导出的 `.mat` | PNG |
@@ -91,6 +92,47 @@ workspace/sourcepack/2023.002.0000/sourcepack_index.tsv
 
 这些索引指向 `ncf/xcpack/*.xcpack` 中的真实 payload，不会复制互相关数据。
 
+## `fastxc extract-ncf`
+
+`extract-ncf` 用来从 SourcePack 或 native XC pack 索引中复制一条已经计算好的
+NCF 记录，不会重新执行 XC。索引行里保存了 source/receiver/component 元数据，
+以及 `record_path` 或 `pack_path`、字节偏移和字节数；被选中的这段 bytes 本身就是
+一条完整的 SAC record。
+
+```bash
+fastxc extract-ncf \
+  --workspace workspace \
+  --timestamp 20111222T00_00 \
+  --source 45002 \
+  --receiver 45009 \
+  --component-pair BHE-BHZ \
+  -O workspace/plots/45002_45009_BHE_BHZ.SAC
+```
+
+也可以直接指定索引文件：
+
+```bash
+fastxc extract-ncf \
+  -I workspace/sourcepack/20111222T00_00/sourcepack_index.tsv \
+  --source 45002 \
+  --receiver 45009 \
+  --component-pair BHE-BHZ \
+  -O one_pair.SAC
+```
+
+参数：
+
+- `--workspace`：FastXC workspace；优先读取 `sourcepack/<timestamp>/sourcepack_index.tsv`，找不到时回退到 `ncf/xcpack/*.tsv`。
+- `-I, --input`：SourcePack 索引/目录、`xcpack` 目录或 XC 输出根目录。
+- `--timestamp`：时间片筛选；同时兼容 `:` 和 `_` 两种时间戳写法。
+- `--source`, `--receiver`：虚拟源台站和接收台站。
+- `--component-pair`：源端-接收端分量对，例如 `BHE-BHZ` 或 `R-Z`。
+- `--src-network`, `--rec-network`, `--src-location`, `--rec-location`：可选的 network/location 消歧过滤。
+- `--allow-reverse`：也允许匹配 receiver/source 反向记录。
+- `--dry-run`：只打印匹配到的 pack 路径、offset 和 bytes，不写 SAC。
+
+当索引中保存的是容器绝对路径时，工具会回退到本地 workspace 的 `ncf/xcpack`
+目录；在 Windows 上也会兼容文件名里 `:` 被替换成 `_` 的情况。
 ## `fastxc sac2dat`
 
 `sac2dat` 把 SAC 文件转换为 DAT 文本，便于快速查看、绘图或交给只接受文本的
@@ -238,6 +280,7 @@ fastxc plot-stepack-mat \
 ## 什么时候用哪个工具
 
 - 想重新导出最终 SAC：用 `fastxc unpack`。
+- 想抽取单天、单台站对、单分量对的 NCF：用 `fastxc extract-ncf`。
 - XC 已完成但 SourcePack 缺失或损坏：用 `fastxc sourcepack` 重建索引。
 - 想把少量 SAC 变成文本快速查看：用 `fastxc sac2dat`。
 - 想检查单分量或 RTZ/ENZ 九分量虚拟炮集：用 `fastxc plot-rtz-grid`。

@@ -47,6 +47,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_unpack(args)
     if args.command == "plot-rtz-grid":
         return _cmd_plot_rtz_grid(args)
+    if args.command == "extract-ncf":
+        return _cmd_extract_ncf(args)
     if args.command == "extract-stepack":
         return _cmd_extract_stepack(args)
     if args.command == "plot-stepack-mat":
@@ -142,6 +144,26 @@ def build_parser() -> argparse.ArgumentParser:
     unpack_parser.add_argument("-I", "--input", required=True, help="sourcepack directory or sourcepack_index.tsv")
     unpack_parser.add_argument("-O", "--output", required=True, help="output directory for unpacked SAC files")
     unpack_parser.add_argument("-T", "--threads", type=int, default=1, help="parallel output file workers")
+
+    extract_ncf_parser = sub.add_parser("extract-ncf", help="extract one NCF SAC record from SourcePack or XC pack indexes")
+    extract_ncf_input = extract_ncf_parser.add_mutually_exclusive_group(required=True)
+    extract_ncf_input.add_argument(
+        "-I",
+        "--input",
+        help="SourcePack index/directory, xcpack directory, or XC output root",
+    )
+    extract_ncf_input.add_argument("--workspace", help="FastXC workspace containing sourcepack/ or ncf/xcpack/")
+    extract_ncf_parser.add_argument("--timestamp", help="timestamp to extract; required for workspace/xcpack inputs")
+    extract_ncf_parser.add_argument("--source", required=True, help="source station code")
+    extract_ncf_parser.add_argument("--receiver", required=True, help="receiver station code")
+    extract_ncf_parser.add_argument("--component-pair", required=True, help="component pair, e.g. BHE-BHZ or R-Z")
+    extract_ncf_parser.add_argument("--src-network", help="optional source network filter")
+    extract_ncf_parser.add_argument("--rec-network", help="optional receiver network filter")
+    extract_ncf_parser.add_argument("--src-location", help="optional source location filter")
+    extract_ncf_parser.add_argument("--rec-location", help="optional receiver location filter")
+    extract_ncf_parser.add_argument("--allow-reverse", action="store_true", help="also match receiver/source reversed")
+    extract_ncf_parser.add_argument("--dry-run", action="store_true", help="show the matched record without writing")
+    extract_ncf_parser.add_argument("-O", "--output", required=True, help="output SAC path")
 
     plot_rtz_parser = sub.add_parser(
         "plot-rtz-grid",
@@ -498,6 +520,38 @@ def _cmd_plot_rtz_grid(args: argparse.Namespace) -> int:
         f"{result.trace_count} trace(s)."
     )
     return 0
+
+
+def _cmd_extract_ncf(args: argparse.Namespace) -> int:
+    from .tools.extract_ncf import run
+
+    try:
+        result = run(args)
+    except Exception as exc:
+        logging.getLogger(__name__).error("%s", exc)
+        return 1
+    if args.dry_run:
+        print("Matched NCF record:")
+        print(f"  index: {result.index_path}")
+        print(f"  pack: {result.record_path}")
+        print(f"  offset: {result.record_offset}")
+        print(f"  bytes: {result.record_bytes}")
+        print(
+            "  pair: "
+            f"{result.row.get('src_station')}-{result.row.get('rec_station')} "
+            f"{result.row.get('src_component')}-{result.row.get('rec_component')}"
+        )
+        if result.reversed_match:
+            print("  match: reversed")
+    else:
+        print(
+            f"Wrote {result.output_path} "
+            f"({result.record_bytes} byte(s) from {result.record_path} offset {result.record_offset})."
+        )
+        if result.reversed_match:
+            print("Matched reversed source/receiver order.")
+    return 0
+
 
 
 def _cmd_extract_stepack(args: argparse.Namespace) -> int:
