@@ -159,12 +159,13 @@ tools for inspection, manual export, and plotting:
 | Convert SAC to dat | `fastxc sac2dat -I ... -O ...` |
 | Build SourcePack manually | `fastxc sourcepack -I ... -O ...` |
 | Export SAC from SourcePack | `fastxc unpack -I ... -O ...` |
+| Extract one indexed NCF SAC record | `fastxc extract-ncf --workspace ... --timestamp ... --source ... --receiver ... --component-pair ... -O ...` |
 | Plot a `result_ncf` virtual-source gather | `fastxc plot-rtz-grid -I ... --source ...` |
 | Extract and plot one StepPack station spectrum | `fastxc extract-stepack --workspace ... --timestamp ... --station ... --plot` |
 | Replot an exported spectrum MAT file | `fastxc plot-stepack-mat -I ... -O ...` |
 
 `plot-rtz-grid` chooses a one-panel or 3x3 layout from the component count, and
-`extract-stepack --plot` writes both the `.mat` slice and a quick-look PNG. See
+`extract-ncf` copies one selected SAC record from SourcePack/XC pack indexes without rerunning XC. `extract-stepack --plot` writes both the `.mat` slice and a quick-look PNG. See
 [Tools](docs_EN/TOOLS.md) for the full option reference.
 
 ## Quick Start

@@ -18,6 +18,7 @@ fastxc run config.ini
 | `fastxc sac2dat` | Convert SAC to text DAT | Directory containing `.sac` files | `.dat` text files |
 | `fastxc sourcepack` | Rebuild SourcePack indexes from XC pack output | `ncf/` or `ncf/xcpack/` | `sourcepack/<timestamp>/sourcepack_index.tsv` |
 | `fastxc unpack` | Export ordinary SAC files from SourcePack | SourcePack directory or `sourcepack_index.tsv` | `.sac` files |
+| `fastxc extract-ncf` | Extract one indexed NCF SAC record | SourcePack index, `ncf/xcpack`, or workspace | `.sac` file |
 | `fastxc plot-rtz-grid` | Plot unpacked single-component or 3x3 virtual-source gathers | `result_ncf/ncf_*_BHZ` or `result_ncf/ncf_*_RTZ` | PNG |
 | `fastxc extract-stepack` | Extract one station's StepPack spectra, optionally with a plot | `workspace/stepack` | `.mat`, optional PNG |
 | `fastxc plot-stepack-mat` | Plot a StepPack `.mat` spectrum file | `.mat` from `extract-stepack` | PNG |
@@ -86,6 +87,49 @@ Options:
 The indexes point to real payload inside `ncf/xcpack/*.xcpack`; they do not
 copy cross-correlation data.
 
+## `fastxc extract-ncf`
+
+`extract-ncf` copies one already-computed NCF record out of SourcePack or native
+XC pack indexes. It does not rerun XC. The matching index row provides the
+source/receiver/component metadata plus `record_path` or `pack_path`, byte
+offset, and byte count; the selected byte range is already a complete SAC
+record.
+
+```bash
+fastxc extract-ncf \
+  --workspace workspace \
+  --timestamp 20111222T00_00 \
+  --source 45002 \
+  --receiver 45009 \
+  --component-pair BHE-BHZ \
+  -O workspace/plots/45002_45009_BHE_BHZ.SAC
+```
+
+You can also point directly to an index:
+
+```bash
+fastxc extract-ncf \
+  -I workspace/sourcepack/20111222T00_00/sourcepack_index.tsv \
+  --source 45002 \
+  --receiver 45009 \
+  --component-pair BHE-BHZ \
+  -O one_pair.SAC
+```
+
+Important options:
+
+- `--workspace`: FastXC workspace; prefers `sourcepack/<timestamp>/sourcepack_index.tsv` and falls back to `ncf/xcpack/*.tsv`.
+- `-I, --input`: SourcePack index/directory, `xcpack` directory, or XC output root.
+- `--timestamp`: timestamp selector. Both `:` and `_` timestamp spellings are accepted.
+- `--source`, `--receiver`: source and receiver station codes.
+- `--component-pair`: source-receiver component pair, such as `BHE-BHZ` or `R-Z`.
+- `--src-network`, `--rec-network`, `--src-location`, `--rec-location`: optional disambiguation filters.
+- `--allow-reverse`: also match the reversed receiver/source order.
+- `--dry-run`: print the matched pack path, offset, and byte count without writing.
+
+When indexes contain container absolute paths, the tool falls back to the local
+workspace `ncf/xcpack` directory and also handles Windows-safe filenames where
+`:` has been replaced by `_`.
 ## `fastxc sac2dat`
 
 `sac2dat` converts SAC files to text DAT files for quick inspection, plotting,
@@ -227,6 +271,7 @@ Options:
 ## Which Tool To Use
 
 - Re-export final SAC: `fastxc unpack`.
+- Extract one day/source/receiver/component NCF: `fastxc extract-ncf`.
 - Rebuild SourcePack after completed XC: `fastxc sourcepack`.
 - Convert a small SAC subset to text: `fastxc sac2dat`.
 - Inspect single-component or RTZ/ENZ 3x3 virtual-source gathers:
